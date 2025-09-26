@@ -13,19 +13,25 @@ This class represents the physical world and properties related to microgrid pow
 - Temperature
 
 """
-import datetime
+from datetime import datetime, timedelta
 import random
 import math
     
     
 class Environment:
     def __init__(self):
+        self.current_time: datetime = datetime.now()
+        self.set_environment_values()
+        
+    def set_environment_values(self):
+        self.cloud_cover: float = self.get_cloud_cover()
         self.wind_speed, self.wind_direction = self.get_wind()
         self.solar_radiation: float = self.get_solar_radiation()
-        self.cloud_cover: float = self.get_cloud_cover()
-        self.current_time: datetime = datetime.now()
         self.temperature: float = self.get_temperature()
  
+    def step(self, timestep_hours):
+        self.current_time += timedelta(hours=timestep_hours)
+        self.set_environment_values()
 
     """Generate cloud cover based on climatic averages for the Perth region."""
     def get_cloud_cover(self) -> float:
@@ -78,7 +84,7 @@ class Environment:
         if -50 <= temperature <= 50:
             self.temperature = temperature
         else:
-            raise ValueError("Illegal cloud cover value. Use 0-9.")
+            raise ValueError("Illegal temperature value. Use -50 to 50c.")
     
     """Return solar radiation in W/m² based on time, season, and cloud cover."""
     def get_solar_radiation(self) -> float:
@@ -155,7 +161,7 @@ class Environment:
     
     """Set the current wind speed (m/s)."""
     def set_wind_speed(self, wind_speed: float):
-        if 0 <= wind_speed <= 100:
+        if not 0 <= wind_speed <= 100:
             raise ValueError("Wind speed must be between 0 and 100 m/s.")
         self.wind_speed = wind_speed
 
