@@ -195,20 +195,9 @@ def get_realistic_demand(current_time: datetime, total_daily_kwh: float) -> floa
     else:
         weight = 0.2 / 8   # 8 night hours share 20%
 
-    # Base profile (simple sinusoidal for peaks)
-    if 6 <= hour < 12:  # morning ramp
-        profile = math.sin((hour - 6) * math.pi / 6)  # 0→1
-    elif 12 <= hour < 18:  # afternoon lull
-        profile = 0.2  # low constant
-    elif 18 <= hour < 22:  # evening peak
-        profile = math.sin((hour - 18) * math.pi / 4)  # 0→1
-    else:  # night
-        profile = 0.1  # minimal usage
-
-    # Scale to total daily energy
-    demand = profile * weight * total_daily_kwh  # multiply by 24h to get kW
+    demand = weight * total_daily_kwh
     # Add some random noise
-    demand += random.uniform(-0.1, 0.1) * demand
+    demand += random.uniform(-0.9, 0.9) * demand
 
     return max(0.1, demand)  # ensure nonzero
 
@@ -231,7 +220,7 @@ total_demand = 0.0
 for i in range(24): # Simulate for one week
     timestep = 1 # 1 hour timestep
     
-    demand = get_realistic_demand(e.current_time, 24)
+    demand = get_realistic_demand(e.current_time, 15)
     
     results = m.step(demand_kw=demand, timestep_hours=timestep)
     total_cost += results["Step Cost ($)"]

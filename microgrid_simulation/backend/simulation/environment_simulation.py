@@ -29,10 +29,10 @@ class Environment:
     def get_cloud_cover(self) -> float:
         current_month = self.current_time.month
         months = {
-            1: 2, 2: 2, 3: 3, 4: 4, 5: 4, 6: 5.5,
-            7: 6, 8: 5.5, 9: 5, 10: 4.5, 11: 3, 12: 2
+            1: 0, 2: 1, 3: 3, 4: 4, 5: 4, 6: 5.5,
+            7: 6, 8: 4.5, 9: 3, 10: 2, 11: 0, 12: 0
         }
-        return max(0, min(9, random.normalvariate(months[current_month], 1.5)))
+        return max(0, min(9, random.normalvariate(months[current_month], 0.8)))
 
     def set_cloud_cover(self, cloud_cover: float):
         if 0 <= cloud_cover <= 9:

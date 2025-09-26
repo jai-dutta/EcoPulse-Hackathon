@@ -1,0 +1,1427 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microgrid Environment Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <style>
+        :root {
+            --primary: #1e293b;
+            --secondary: #3b82f6;
+            --accent: #8b5cf6;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --info: #06b6d4;
+            --surface: #ffffff;
+            --surface-secondary: #f8fafc;
+            --surface-tertiary: #f1f5f9;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --text-tertiary: #94a3b8;
+            --border: #e2e8f0;
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --radius: 12px;
+            --radius-lg: 16px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, var(--surface-secondary) 0%, #e0e7ff 100%);
+            color: var(--text-primary);
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        .dashboard {
+            max-width: 100%;
+            margin: 0;
+            padding: 16px;
+            display: grid;
+            gap: 16px;
+            grid-template-columns: 1fr;
+        }
+
+        .header {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .header h1 {
+            color: var(--primary);
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: var(--shadow);
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-primary { background: var(--secondary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
+
+        .btn:disabled {
+            background: var(--text-tertiary);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .top-section {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 16px;
+        }
+
+        .auto-controls {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .auto-controls h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .input-group label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .input-group input {
+            padding: 8px 12px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--secondary);
+            box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: var(--radius);
+            background: var(--surface-secondary);
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-active { background: var(--success); }
+        .status-paused { background: var(--warning); }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .metric-card {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--secondary), var(--accent));
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .metric-title {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .metric-unit {
+            font-size: 1rem;
+            color: var(--text-tertiary);
+            font-weight: 500;
+        }
+
+        .metric-trend {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+
+        .trend-up { background: rgb(16 185 129 / 0.1); color: var(--success); }
+        .trend-down { background: rgb(239 68 68 / 0.1); color: var(--danger); }
+        .trend-neutral { background: var(--surface-secondary); color: var(--text-tertiary); }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 16px;
+        }
+
+        .charts-section {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+
+        .chart-container {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow);
+        }
+
+        .chart-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: var(--primary);
+        }
+
+        .controls-history-section {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+            align-content: start;
+        }
+
+        .environment-controls {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow);
+        }
+
+        .controls-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: var(--primary);
+        }
+
+        .control-grid {
+            display: grid;
+            gap: 20px;
+        }
+
+        .control-item {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .control-value {
+            color: var(--secondary);
+            font-weight: 700;
+        }
+
+        .slider-container {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .slider {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--surface-tertiary);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--secondary);
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgb(0 0 0 / 0.2);
+            transition: all 0.2s ease;
+        }
+
+        .slider::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgb(0 0 0 / 0.3);
+        }
+
+        .slider-value {
+            width: 70px;
+            padding: 6px 8px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 0.875rem;
+            text-align: center;
+        }
+
+        .control-item .btn {
+            padding: 8px 16px;
+            font-size: 0.8rem;
+        }
+
+        .history-section {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            max-height: 500px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .history-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: var(--primary);
+        }
+
+        .history-table-container {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px 8px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.875rem;
+        }
+
+        th {
+            background: var(--surface-secondary);
+            font-weight: 700;
+            color: var(--text-secondary);
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+
+        tr:hover {
+            background: var(--surface-secondary);
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px 20px;
+            border-radius: var(--radius);
+            color: white;
+            font-weight: 600;
+            z-index: 1000;
+            box-shadow: var(--shadow-lg);
+            backdrop-filter: blur(10px);
+        }
+
+        .notification-success { background: var(--success); }
+        .notification-error { background: var(--danger); }
+        .notification-warning { background: var(--warning); }
+        .notification-info { background: var(--info); }
+
+        @media (max-width: 1200px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls-history-section {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                padding: 12px;
+                gap: 12px;
+            }
+            
+            .top-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .controls-history-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .header {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .header h1 {
+                font-size: 1.75rem;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            }
+            
+            .metric-value {
+                font-size: 2rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .metrics-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>Microgrid Environment Dashboard</h1>
+            <div class="controls">
+                <button id="stepBtn" class="btn btn-primary">⏭ Step Forward</button>
+                <button id="autoStepBtn" class="btn btn-success">▶ Start Auto-Step</button>
+                <button id="resetBtn" class="btn btn-warning">🔄 Reset Environment</button>
+            </div>
+        </div>
+
+        <div class="top-section">
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <div class="metric-title">Time</div>
+                    </div>
+                    <div class="metric-value" id="currentTime">Loading...</div>
+                    <div class="metric-trend" id="timeTrend"></div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <div class="metric-title">Temperature</div>
+                    </div>
+                    <div class="metric-value" id="temperature">--<span class="metric-unit">°C</span></div>
+                    <div class="metric-trend" id="temperatureTrend"></div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <div class="metric-title">Solar Radiation</div>
+                    </div>
+                    <div class="metric-value" id="solarRadiation">--<span class="metric-unit">W/m²</span></div>
+                    <div class="metric-trend" id="solarTrend"></div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <div class="metric-title">Cloud Cover</div>
+                    </div>
+                    <div class="metric-value" id="cloudCover">--<span class="metric-unit">/9</span></div>
+                    <div class="metric-trend" id="cloudTrend"></div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <div class="metric-title">Wind Speed</div>
+                    </div>
+                    <div class="metric-value" id="windSpeed">--<span class="metric-unit">m/s</span></div>
+                    <div class="metric-trend" id="windSpeedTrend"></div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <div class="metric-title">Wind Direction</div>
+                    </div>
+                    <div class="metric-value" id="windDirection">--<span class="metric-unit">°</span></div>
+                    <div class="metric-trend" id="windDirectionTrend"></div>
+                </div>
+            </div>
+
+            <div class="auto-controls">
+                <h3>Auto-Step Controls</h3>
+                <div class="input-group">
+                    <label for="timestep">Timestep (hours)</label>
+                    <input type="number" id="timestep" min="0.1" max="24" step="0.1" value="1.0">
+                </div>
+                <div class="input-group">
+                    <label for="interval">Interval (seconds)</label>
+                    <input type="number" id="interval" min="1" max="60" value="5">
+                </div>
+                <div class="status-indicator" id="autoStepStatus">
+                    <span class="status-dot status-paused"></span>
+                    Auto-step: Paused
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="charts-section">
+                <div class="chart-container">
+                    <div class="chart-title">Temperature & Solar Radiation</div>
+                    <canvas id="tempSolarChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">Wind Conditions</div>
+                    <canvas id="windChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">Cloud Cover & Solar Radiation</div>
+                    <canvas id="cloudSolarChart"></canvas>
+                </div>
+            </div>
+
+            <div class="controls-history-section">
+                <div class="environment-controls">
+                    <div class="controls-title">Environment Controls</div>
+                    <div class="control-grid">
+                        <div class="control-item">
+                            <div class="control-label">
+                                <span>Temperature</span>
+                                <span class="control-value" id="tempControlValue">20°C</span>
+                            </div>
+                            <div class="slider-container">
+                                <input type="range" min="-50" max="50" value="20" class="slider" id="tempSlider">
+                                <input type="number" min="-50" max="50" value="20" class="slider-value" id="tempInput">
+                            </div>
+                            <button class="btn btn-primary" id="setTempBtn">Set Temperature</button>
+                        </div>
+                        <div class="control-item">
+                            <div class="control-label">
+                                <span>Solar Radiation</span>
+                                <span class="control-value" id="solarControlValue">500 W/m²</span>
+                            </div>
+                            <div class="slider-container">
+                                <input type="range" min="0" max="1000" value="500" class="slider" id="solarSlider">
+                                <input type="number" min="0" max="1000" value="500" class="slider-value" id="solarInput">
+                            </div>
+                            <button class="btn btn-primary" id="setSolarBtn">Set Solar Radiation</button>
+                        </div>
+                        <div class="control-item">
+                            <div class="control-label">
+                                <span>Cloud Cover</span>
+                                <span class="control-value" id="cloudControlValue">4.5/9</span>
+                            </div>
+                            <div class="slider-container">
+                                <input type="range" min="0" max="9" value="4.5" step="0.1" class="slider" id="cloudSlider">
+                                <input type="number" min="0" max="9" step="0.1" value="4.5" class="slider-value" id="cloudInput">
+                            </div>
+                            <button class="btn btn-primary" id="setCloudBtn">Set Cloud Cover</button>
+                        </div>
+                        <div class="control-item">
+                            <div class="control-label">
+                                <span>Wind Speed</span>
+                                <span class="control-value" id="windSpeedControlValue">5 m/s</span>
+                            </div>
+                            <div class="slider-container">
+                                <input type="range" min="0" max="100" value="5" step="0.1" class="slider" id="windSpeedSlider">
+                                <input type="number" min="0" max="100" step="0.1" value="5" class="slider-value" id="windSpeedInput">
+                            </div>
+                            <button class="btn btn-primary" id="setWindSpeedBtn">Set Wind Speed</button>
+                        </div>
+                        <div class="control-item">
+                            <div class="control-label">
+                                <span>Wind Direction</span>
+                                <span class="control-value" id="windDirectionControlValue">180°</span>
+                            </div>
+                            <div class="slider-container">
+                                <input type="range" min="0" max="359" value="180" class="slider" id="windDirectionSlider">
+                                <input type="number" min="0" max="359" value="180" class="slider-value" id="windDirectionInput">
+                            </div>
+                            <button class="btn btn-primary" id="setWindDirectionBtn">Set Wind Direction</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="history-section">
+                    <div class="history-title">Environment History</div>
+                    <div class="history-table-container">
+                        <table id="historyTable">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Temp (°C)</th>
+                                    <th>Solar (W/m²)</th>
+                                    <th>Cloud (/9)</th>
+                                    <th>Wind (m/s)</th>
+                                    <th>Dir (°)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyBody">
+                                <!-- Data will be populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+// API base URL
+const API_BASE = 'http://localhost:8000';
+
+// Global variables
+let environmentData = [];
+let autoStepInterval = null;
+let charts = {};
+let previousEnvironmentState = null; // Store previous state for stable trend calculation
+
+// DOM elements
+const stepBtn = document.getElementById('stepBtn');
+const autoStepBtn = document.getElementById('autoStepBtn');
+const resetBtn = document.getElementById('resetBtn');
+const timestepInput = document.getElementById('timestep');
+const intervalInput = document.getElementById('interval');
+const autoStepStatus = document.getElementById('autoStepStatus');
+
+// Initialize the dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    loadEnvironmentData();
+    setupEventListeners();
+    setupControlSliders();
+});
+
+// Initialize charts
+function initializeCharts() {
+    const tempSolarCtx = document.getElementById('tempSolarChart').getContext('2d');
+    charts.tempSolar = new Chart(tempSolarCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Temperature (°C)',
+                    data: [],
+                    borderColor: '#e74c3c',
+                    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                    yAxisID: 'y',
+                    tension: 0.4
+                },
+                {
+                    label: 'Solar Radiation (W/m²)',
+                    data: [],
+                    borderColor: '#f39c12',
+                    backgroundColor: 'rgba(243, 156, 18, 0.1)',
+                    yAxisID: 'y1',
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Time'
+                    }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Temperature (°C)'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Solar Radiation (W/m²)'
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                }
+            }
+        }
+    });
+
+    const windCtx = document.getElementById('windChart').getContext('2d');
+    charts.wind = new Chart(windCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Wind Speed (m/s)',
+                    data: [],
+                    borderColor: '#3498db',
+                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                    yAxisID: 'y',
+                    tension: 0.4
+                },
+                {
+                    label: 'Wind Direction (°)',
+                    data: [],
+                    borderColor: '#9b59b6',
+                    backgroundColor: 'rgba(155, 89, 182, 0.1)',
+                    yAxisID: 'y1',
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Time'
+                    }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Wind Speed (m/s)'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Wind Direction (°)'
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                    min: 0,
+                    max: 360
+                }
+            }
+        }
+    });
+
+    const cloudSolarCtx = document.getElementById('cloudSolarChart').getContext('2d');
+    charts.cloudSolar = new Chart(cloudSolarCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Cloud Cover (/9)',
+                    data: [],
+                    borderColor: '#7f8c8d',
+                    backgroundColor: 'rgba(127, 140, 141, 0.1)',
+                    yAxisID: 'y',
+                    tension: 0.4
+                },
+                {
+                    label: 'Solar Radiation (W/m²)',
+                    data: [],
+                    borderColor: '#f39c12',
+                    backgroundColor: 'rgba(243, 156, 18, 0.1)',
+                    yAxisID: 'y1',
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            interaction: {
+                mode: 'index',
+                intersect: false,
+            },
+            scales: {
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Time'
+                    }
+                },
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Cloud Cover (/9)'
+                    },
+                    reverse: true,
+                    min: 0,
+                    max: 9
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Solar Radiation (W/m²)'
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                    min: 0
+                }
+            }
+        }
+    });
+}
+
+// Setup event listeners
+function setupEventListeners() {
+    stepBtn.addEventListener('click', stepEnvironment);
+    autoStepBtn.addEventListener('click', toggleAutoStep);
+    resetBtn.addEventListener('click', resetEnvironment);
+
+    // Control buttons
+    document.getElementById('setTempBtn').addEventListener('click', setTemperature);
+    document.getElementById('setSolarBtn').addEventListener('click', setSolarRadiation);
+    document.getElementById('setCloudBtn').addEventListener('click', setCloudCover);
+    document.getElementById('setWindSpeedBtn').addEventListener('click', setWindSpeed);
+    document.getElementById('setWindDirectionBtn').addEventListener('click', setWindDirection);
+}
+
+// Setup control sliders
+function setupControlSliders() {
+    // Temperature controls
+    const tempSlider = document.getElementById('tempSlider');
+    const tempInput = document.getElementById('tempInput');
+    
+    tempSlider.addEventListener('input', function() {
+        tempInput.value = this.value;
+        document.getElementById('tempControlValue').textContent = `${this.value}°C`;
+    });
+    
+    tempInput.addEventListener('input', function() {
+        let value = Math.max(-50, Math.min(50, parseFloat(this.value) || 20));
+        this.value = value;
+        tempSlider.value = value;
+        document.getElementById('tempControlValue').textContent = `${value}°C`;
+    });
+
+    // Solar radiation controls
+    const solarSlider = document.getElementById('solarSlider');
+    const solarInput = document.getElementById('solarInput');
+    
+    solarSlider.addEventListener('input', function() {
+        solarInput.value = this.value;
+        document.getElementById('solarControlValue').textContent = `${this.value} W/m²`;
+    });
+    
+    solarInput.addEventListener('input', function() {
+        let value = Math.max(0, Math.min(1000, parseFloat(this.value) || 500));
+        this.value = value;
+        solarSlider.value = value;
+        document.getElementById('solarControlValue').textContent = `${value} W/m²`;
+    });
+
+    // Cloud cover controls
+    const cloudSlider = document.getElementById('cloudSlider');
+    const cloudInput = document.getElementById('cloudInput');
+    
+    cloudSlider.addEventListener('input', function() {
+        cloudInput.value = this.value;
+        document.getElementById('cloudControlValue').textContent = `${this.value}/9`;
+    });
+    
+    cloudInput.addEventListener('input', function() {
+        let value = Math.max(0, Math.min(9, parseFloat(this.value) || 4.5));
+        this.value = value;
+        cloudSlider.value = value;
+        document.getElementById('cloudControlValue').textContent = `${value}/9`;
+    });
+
+    // Wind speed controls
+    const windSpeedSlider = document.getElementById('windSpeedSlider');
+    const windSpeedInput = document.getElementById('windSpeedInput');
+    
+    windSpeedSlider.addEventListener('input', function() {
+        windSpeedInput.value = this.value;
+        document.getElementById('windSpeedControlValue').textContent = `${this.value} m/s`;
+    });
+    
+    windSpeedInput.addEventListener('input', function() {
+        let value = Math.max(0, Math.min(100, parseFloat(this.value) || 5));
+        this.value = value;
+        windSpeedSlider.value = value;
+        document.getElementById('windSpeedControlValue').textContent = `${value} m/s`;
+    });
+
+    // Wind direction controls
+    const windDirectionSlider = document.getElementById('windDirectionSlider');
+    const windDirectionInput = document.getElementById('windDirectionInput');
+    
+    windDirectionSlider.addEventListener('input', function() {
+        windDirectionInput.value = this.value;
+        document.getElementById('windDirectionControlValue').textContent = `${this.value}°`;
+    });
+    
+    windDirectionInput.addEventListener('input', function() {
+        let value = Math.max(0, Math.min(359, parseFloat(this.value) || 180));
+        this.value = value;
+        windDirectionSlider.value = value;
+        document.getElementById('windDirectionControlValue').textContent = `${value}°`;
+    });
+}
+
+// Load environment data from API
+async function loadEnvironmentData() {
+    try {
+        const response = await fetch(`${API_BASE}/environment`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        updateDashboard(data);
+    } catch (error) {
+        console.error('Error fetching environment data:', error);
+        showNotification('Error connecting to the API. Make sure the server is running on port 8000.', 'error');
+    }
+}
+
+// Step the environment forward
+async function stepEnvironment() {
+    const timestep = parseFloat(timestepInput.value) || 1.0;
+    
+    try {
+        const response = await fetch(`${API_BASE}/step?timestep_hours=${timestep}`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        updateDashboard(data);
+        showNotification(`Environment stepped forward by ${timestep} hours`, 'success');
+    } catch (error) {
+        console.error('Error stepping environment:', error);
+        showNotification('Error stepping environment. Check console for details.', 'error');
+    }
+}
+
+// Toggle auto-step functionality
+function toggleAutoStep() {
+    if (autoStepInterval) {
+        clearInterval(autoStepInterval);
+        autoStepInterval = null;
+        autoStepBtn.textContent = 'Start Auto-Step';
+        autoStepStatus.innerHTML = '<span class="status-indicator status-paused"></span> Auto-step: Paused';
+        autoStepBtn.classList.remove('btn-danger');
+        autoStepBtn.classList.add('btn-success');
+        showNotification('Auto-step stopped', 'info');
+    } else {
+        const interval = parseInt(intervalInput.value) * 1000 || 5000;
+        if (interval < 1000) {
+            showNotification('Auto-step interval must be at least 1 second', 'warning');
+            return;
+        }
+        autoStepInterval = setInterval(stepEnvironment, interval);
+        autoStepBtn.textContent = 'Stop Auto-Step';
+        autoStepStatus.innerHTML = '<span class="status-indicator status-active"></span> Auto-step: Running';
+        autoStepBtn.classList.remove('btn-success');
+        autoStepBtn.classList.add('btn-danger');
+        showNotification(`Auto-step started with ${interval/1000}s interval`, 'success');
+    }
+}
+
+// Reset the environment
+async function resetEnvironment() {
+    if (confirm('This will reset the environment to its initial state. Continue?')) {
+        try {
+            const response = await fetch(`${API_BASE}/reset`, {
+                method: 'POST'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            environmentData = [];
+            previousEnvironmentState = null; // Reset previous state
+            updateDashboard(result.environment);
+            showNotification('Environment reset to initial state', 'success');
+        } catch (error) {
+            console.error('Error resetting environment:', error);
+            showNotification('Error resetting environment. Check console for details.', 'error');
+        }
+    }
+}
+
+// Set environment variables
+async function setTemperature() {
+    const value = parseFloat(document.getElementById('tempInput').value);
+    if (isNaN(value) || value < -50 || value > 50) {
+        showNotification('Please enter a valid temperature between -50 and 50°C', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/environment/temperature?temperature=${value}`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        showNotification(result.message, 'success');
+        loadEnvironmentData(); // Refresh data to get updated values
+    } catch (error) {
+        console.error('Error setting temperature:', error);
+        showNotification('Error setting temperature. Check console for details.', 'error');
+    }
+}
+
+async function setSolarRadiation() {
+    const value = parseFloat(document.getElementById('solarInput').value);
+    if (isNaN(value) || value < 0 || value > 1000) {
+        showNotification('Please enter a valid solar radiation value between 0 and 1000 W/m²', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/environment/solar_radiation?solar_radiation=${value}`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        showNotification(result.message, 'success');
+        loadEnvironmentData();
+    } catch (error) {
+        console.error('Error setting solar radiation:', error);
+        showNotification('Error setting solar radiation. Check console for details.', 'error');
+    }
+}
+
+async function setCloudCover() {
+    const value = parseFloat(document.getElementById('cloudInput').value);
+    if (isNaN(value) || value < 0 || value > 9) {
+        showNotification('Please enter a valid cloud cover value between 0 and 9', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/environment/cloud_cover?cloud_cover=${value}`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        showNotification(result.message, 'success');
+        loadEnvironmentData();
+    } catch (error) {
+        console.error('Error setting cloud cover:', error);
+        showNotification('Error setting cloud cover. Check console for details.', 'error');
+    }
+}
+
+async function setWindSpeed() {
+    const value = parseFloat(document.getElementById('windSpeedInput').value);
+    if (isNaN(value) || value < 0 || value > 100) {
+        showNotification('Please enter a valid wind speed between 0 and 100 m/s', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/environment/wind_speed?wind_speed=${value}`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        showNotification(result.message, 'success');
+        loadEnvironmentData();
+    } catch (error) {
+        console.error('Error setting wind speed:', error);
+        showNotification('Error setting wind speed. Check console for details.', 'error');
+    }
+}
+
+async function setWindDirection() {
+    const value = parseFloat(document.getElementById('windDirectionInput').value);
+    if (isNaN(value) || value < 0 || value >= 360) {
+        showNotification('Please enter a valid wind direction between 0 and 359 degrees', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/environment/wind_direction?wind_direction=${value}`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        showNotification(result.message, 'success');
+        loadEnvironmentData();
+    } catch (error) {
+        console.error('Error setting wind direction:', error);
+        showNotification('Error setting wind direction. Check console for details.', 'error');
+    }
+}
+
+// Update the dashboard with new data
+function updateDashboard(data) {
+    // Store current state for trend calculation
+    const currentState = {
+        timestamp: new Date(),
+        data: data
+    };
+    
+    // Add to history
+    environmentData.push(currentState);
+    
+    // Keep only last 50 entries
+    if (environmentData.length > 50) {
+        environmentData = environmentData.slice(-50);
+    }
+    
+    // Update current values
+    document.getElementById('currentTime').textContent = data.time;
+    document.getElementById('temperature').textContent = data.temperature;
+    document.getElementById('solarRadiation').textContent = data.solar_radiation;
+    document.getElementById('cloudCover').textContent = data.cloud_cover.toFixed(1);
+    document.getElementById('windSpeed').textContent = data.wind_speed;
+    document.getElementById('windDirection').textContent = data.wind_direction;
+    
+    // Update trends (only when we have a previous state to compare with)
+    if (previousEnvironmentState) {
+        updateTrends(currentState, previousEnvironmentState);
+    }
+    
+    // Update charts
+    updateCharts();
+    
+    // Update history table
+    updateHistoryTable();
+    
+    // Store current state as previous for next comparison
+    previousEnvironmentState = currentState;
+}
+
+// Update trend indicators with stable calculation
+function updateTrends(current, previous) {
+    // Only update trends if we have meaningful time difference (more than 15 minutes)
+    const timeDiff = current.timestamp - previous.timestamp;
+    const minTimeDiff = 15 * 60 * 1000; // 15 minutes in milliseconds
+    
+    if (timeDiff < minTimeDiff && environmentData.length > 2) {
+        // Use the state before the previous one for more stable trend calculation
+        const olderState = environmentData[environmentData.length - 3];
+        if (olderState) {
+            previous = olderState;
+        }
+    }
+    
+    // Temperature trend
+    const tempTrend = document.getElementById('temperatureTrend');
+    const tempDiff = current.data.temperature - previous.data.temperature;
+    setStableTrendIndicator(tempTrend, tempDiff, '°C', 0.5);
+    
+    // Solar radiation trend
+    const solarTrend = document.getElementById('solarTrend');
+    const solarDiff = current.data.solar_radiation - previous.data.solar_radiation;
+    setStableTrendIndicator(solarTrend, solarDiff, 'W/m²', 10);
+    
+    // Cloud cover trend
+    const cloudTrend = document.getElementById('cloudTrend');
+    const cloudDiff = current.data.cloud_cover - previous.data.cloud_cover;
+    setStableTrendIndicator(cloudTrend, -cloudDiff, '/9', 0.3); // Negative because lower cloud cover is better
+    
+    // Wind speed trend
+    const windSpeedTrend = document.getElementById('windSpeedTrend');
+    const windSpeedDiff = current.data.wind_speed - previous.data.wind_speed;
+    setStableTrendIndicator(windSpeedTrend, windSpeedDiff, 'm/s', 0.5);
+    
+    // Wind direction trend (special handling for circular data)
+    const windDirectionTrend = document.getElementById('windDirectionTrend');
+    const windDirectionDiff = calculateAngularDifference(current.data.wind_direction, previous.data.wind_direction);
+    setStableTrendIndicator(windDirectionTrend, windDirectionDiff, '°', 10);
+}
+
+// Calculate the smallest difference between two angles (0-359)
+function calculateAngularDifference(current, previous) {
+    let diff = Math.abs(current - previous);
+    if (diff > 180) {
+        diff = 360 - diff;
+    }
+    // Determine direction (positive if increasing, negative if decreasing)
+    // But wrap around 360 degrees
+    let directDiff = current - previous;
+    if (directDiff > 180) directDiff -= 360;
+    if (directDiff < -180) directDiff += 360;
+    
+    return directDiff;
+}
+
+// Set trend indicator with stable thresholds
+function setStableTrendIndicator(element, difference, unit, threshold) {
+    const absDiff = Math.abs(difference);
+    let trendClass, symbol, displayText;
+    
+    if (difference > threshold) {
+        trendClass = 'trend-up';
+        symbol = '↗';
+        displayText = `${symbol} +${absDiff.toFixed(1)}${unit}`;
+    } else if (difference < -threshold) {
+        trendClass = 'trend-down';
+        symbol = '↘';
+        displayText = `${symbol} -${absDiff.toFixed(1)}${unit}`;
+    } else {
+        trendClass = 'trend-neutral';
+        symbol = '→';
+        displayText = `${symbol} Stable (±${threshold}${unit})`;
+    }
+    
+    element.className = `card-trend ${trendClass}`;
+    element.innerHTML = displayText;
+}
+
+// Update all charts with new data
+function updateCharts() {
+    const labels = environmentData.map(item => 
+        moment(item.timestamp).format('HH:mm')
+    );
+    
+    const temperatures = environmentData.map(item => item.data.temperature);
+    const solarRadiation = environmentData.map(item => item.data.solar_radiation);
+    const cloudCover = environmentData.map(item => item.data.cloud_cover);
+    const windSpeed = environmentData.map(item => item.data.wind_speed);
+    const windDirection = environmentData.map(item => item.data.wind_direction);
+    
+    // Update temperature & solar chart
+    if (charts.tempSolar) {
+        charts.tempSolar.data.labels = labels;
+        charts.tempSolar.data.datasets[0].data = temperatures;
+        charts.tempSolar.data.datasets[1].data = solarRadiation;
+        charts.tempSolar.update('none'); // 'none' prevents animation for smoother updates
+    }
+    
+    // Update wind chart
+    if (charts.wind) {
+        charts.wind.data.labels = labels;
+        charts.wind.data.datasets[0].data = windSpeed;
+        charts.wind.data.datasets[1].data = windDirection;
+        charts.wind.update('none');
+    }
+    
+    // Update cloud & solar chart
+    if (charts.cloudSolar) {
+        charts.cloudSolar.data.labels = labels;
+        charts.cloudSolar.data.datasets[0].data = cloudCover;
+        charts.cloudSolar.data.datasets[1].data = solarRadiation;
+        charts.cloudSolar.update('none');
+    }
+    
+}
+
+// Update the history table
+function updateHistoryTable() {
+    const tbody = document.getElementById('historyBody');
+    tbody.innerHTML = '';
+    
+    // Show latest 10 entries
+    const recentData = environmentData.slice(-10).reverse();
+    
+    recentData.forEach(item => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${item.data.time}</td>
+            <td>${item.data.temperature.toFixed(1)}</td>
+            <td>${item.data.solar_radiation.toFixed(1)}</td>
+            <td>${item.data.cloud_cover.toFixed(1)}</td>
+            <td>${item.data.wind_speed.toFixed(1)}</td>
+            <td>${item.data.wind_direction.toFixed(1)}</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+// Show notification
+function showNotification(message, type) {
+    // Remove existing notification
+    const existingNotification = document.querySelector('.notification');
+    if (existingNotification) {
+        existingNotification.remove();
+    }
+    
+    // Create new notification
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        border-radius: 5px;
+        color: white;
+        font-weight: 600;
+        z-index: 1000;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    `;
+    
+    // Set background color based on type
+    const colors = {
+        success: '#2ecc71',
+        error: '#e74c3c',
+        warning: '#f39c12',
+        info: '#3498db'
+    };
+    notification.style.backgroundColor = colors[type] || colors.info;
+    
+    document.body.appendChild(notification);
+    
+    // Animate in
+    setTimeout(() => {
+        notification.style.opacity = '1';
+    }, 10);
+    
+    // Animate out after 3 seconds
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
+}
+    </script>
+</body>
+</html>
