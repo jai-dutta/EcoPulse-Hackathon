@@ -1,172 +1,253 @@
 """
 power_simulation.py
 
-This file represents multiple power generation and storage devices:
-- Wind Turbine
-- Solar Panel
-- Import (Grid import)
-- Battery
+This file represents multiple power generation and storage devices.
 """
 
 from environment_simulation import Environment
 import math
-import time
+from datetime import datetime
+import random
 
 class PowerDevice:
     def __init__(self, name: str):
         self.name: str = name
-        self.power_output = 0.0 # Current power output in kW
-        
+        self.power_output = 0.0  # Current power output in kW
+
     def update_output(self, environment: Environment) -> None:
-        # To be implemented by children
         pass
-    
+
     def get_power_output(self) -> float:
         return self.power_output
-    
+
     def __str__(self) -> str:
         return self.name
-    
+
 class WindTurbine(PowerDevice):
-    def __init__(self, name: str, rated_power: float, direction: int):
+    # ADDED: Realistic power curve parameters
+    def __init__(self, name: str, rated_power: float, direction: int, 
+                 cut_in_speed: float, rated_speed: float, cut_out_speed: float):
         super().__init__(name)
         self.rated_power = rated_power
+        self.cut_in_speed = cut_in_speed
+        self.rated_speed = rated_speed
+        self.cut_out_speed = cut_out_speed
+        
         if 0 <= direction <= 360:
             self.direction = direction
         else:
             raise ValueError("Invalid direction for WindTurbine.")
-        
+
     def update_output(self, environment):
         wind_speed = environment.wind_speed
         wind_direction = environment.wind_direction
 
-        # Calculate alignment factor based on angle difference between turbine and wind direction
-        # Perfect alignment (0 deg difference) = 1.0, worst alignment (180 deg) = 0.0
         angle_diff = abs(self.direction - wind_direction) % 360
         if angle_diff > 180:
             angle_diff = 360 - angle_diff
         alignment_factor = max(0, math.cos(math.radians(angle_diff)))
-
-        # Power output proportional to wind speed squared * alignment_factor (simplified)
-        # Cap output at rated power
-        power = (wind_speed ** 2) * alignment_factor
-        self.power_output = min(power, self.rated_power)
         
+        # CHANGED: Switched to a realistic power curve model
+        power = 0.0
+        if self.cut_in_speed <= wind_speed < self.rated_speed:
+            # Power is proportional to velocity cubed in this range
+            # This formula scales the output to match the rated power at the rated speed
+            power = self.rated_power * (
+                (wind_speed**3 - self.cut_in_speed**3) / 
+                (self.rated_speed**3 - self.cut_in_speed**3)
+            )
+        elif self.rated_speed <= wind_speed < self.cut_out_speed:
+            # Output is capped at rated power
+            power = self.rated_power
+        # If wind is below cut-in or above cut-out, power remains 0.0
+        
+        self.power_output = power * alignment_factor
+
 class SolarPanel(PowerDevice):
-    def __init__(self, name: str, rated_power: float):
+    # ADDED: Parameters for temperature effects
+    def __init__(self, name: str, rated_power: float, temp_coefficient: float = 0.004, stc_temp: float = 25.0):
         super().__init__(name)
         self.rated_power = rated_power
+        self.temp_coefficient = temp_coefficient  # 0.4% loss per degree C over STC
+        self.stc_temp = stc_temp  # Standard Test Condition temperature (25°C)
 
     def update_output(self, environment):
-        max_radiation = 1000  # W/m² peak solar radiation
+        max_radiation = 1000  # W/m²
         radiation = environment.solar_radiation
-        self.power_output = max(
-            0.0,
-            self.rated_power * (radiation / max_radiation)
-        )
+        temperature = environment.temperature
 
-class GridImport(PowerDevice):
-    def __init__(self, name: str):
+        # Base power from radiation
+        base_power = self.rated_power * (radiation / max_radiation)
+        
+        # ADDED: Temperature derating factor
+        # For every degree above 25°C, the panel loses efficiency
+        temp_derating = 1.0 - (temperature - self.stc_temp) * self.temp_coefficient
+        
+        # Final power is base power adjusted for temperature
+        self.power_output = max(0.0, base_power * temp_derating)
+
+# CHANGED: Renamed from GridImport to GridConnection to handle both import and export
+class GridConnection(PowerDevice):
+    def __init__(self, name: str, import_price: float, export_price: float):
         super().__init__(name)
-    def update_output(self, environment, demand: float = 0.0):
-        """
-        Import power from the grid to meet demand.
-        demand (kW) is how much extra power is needed.
-        """
-        self.power_output = demand
+        self.import_price = import_price # Price to buy from grid ($/kWh)
+        self.export_price = export_price # Price to sell to grid ($/kWh)
+
+    def update_output(self, environment, net_demand: float = 0.0):
+        # If demand is positive, we import. If negative, we export.
+        self.power_output = net_demand
+
+    # Cost calculation method for clarity
+    def get_cost(self, timestep_hours: float) -> float:
+        """Returns the cost for the timestep. Positive for import, negative for export revenue."""
+        if self.power_output > 0: # Importing
+            return self.power_output * self.import_price * timestep_hours
+        elif self.power_output < 0: # Exporting
+            return self.power_output * self.export_price * timestep_hours
+        else:
+            return 0.0
 
 class Battery(PowerDevice):
-    def __init__(self, name: str, capacity_kwh: float, max_power_kw: float, initial_charge: float = 0.5):
+    # ADDED: Efficiency parameter
+    def __init__(self, name: str, capacity_kwh: float, max_power_kw: float, 
+                 efficiency: float = 0.90, initial_charge: float = 0.5):
         super().__init__(name)
         self.capacity_kwh = capacity_kwh
         self.max_power_kw = max_power_kw
-        self.state_of_charge = initial_charge * capacity_kwh  # kWh stored
+        # Account for round-trip efficiency
+        self.one_way_efficiency = math.sqrt(efficiency) # Split losses between charge/discharge
+        self.state_of_charge = initial_charge * capacity_kwh  # kWh
 
     def update_output(self, environment, demand: float = 0.0, timestep_hours: float = 1.0):
-        """
-        Update battery output depending on demand and SOC.
-        Positive power_output = discharge, negative = charging.
-        """
-        if demand > 0:  # Discharge
-            available = min(self.state_of_charge / timestep_hours, self.max_power_kw)
-            discharge = min(demand, available)
+        if demand > 0:  # Discharge to meet demand
+            # How much power can we deliver from storage?
+            power_available_from_soc = self.state_of_charge * self.one_way_efficiency / timestep_hours
+            available_to_discharge = min(power_available_from_soc, self.max_power_kw)
+            
+            discharge = min(demand, available_to_discharge)
             self.power_output = discharge
-            self.state_of_charge -= discharge * timestep_hours
-        elif demand < 0:  # Excess generation → charge
-            charge_power = min(-demand, self.max_power_kw)
-            available_capacity = (self.capacity_kwh - self.state_of_charge) / timestep_hours
-            charge = min(charge_power, available_capacity)
-            self.power_output = -charge
-            self.state_of_charge += charge * timestep_hours
-        else:  # No net demand
+            # To deliver 'discharge' kW, we must pull more from storage due to losses
+            self.state_of_charge -= (discharge * timestep_hours) / self.one_way_efficiency
+
+        elif demand < 0:  # Charge with surplus generation
+            # How much can we charge?
+            power_available_to_charge = (self.capacity_kwh - self.state_of_charge) / self.one_way_efficiency / timestep_hours
+            available_to_charge = min(-demand, self.max_power_kw, power_available_to_charge)
+
+            self.power_output = -available_to_charge
+            # When charging, we store less than we take in due to losses
+            self.state_of_charge += available_to_charge * timestep_hours * self.one_way_efficiency
+        else:
             self.power_output = 0.0
+        
+        self.state_of_charge = max(0, min(self.capacity_kwh, self.state_of_charge))
 
     def get_state_of_charge(self) -> float:
-        """Return state of charge in kWh."""
         return self.state_of_charge
 
 class MicrogridManager:
-    def __init__(self, environment, devices: list, battery: Battery, grid: GridImport):
+    def __init__(self, environment, devices: list, battery: Battery, grid: GridConnection):
         self.environment = environment
-        self.devices = devices  # list of PowerDevice (solar, wind, etc.)
+        self.devices = devices
         self.battery = battery
         self.grid = grid
-        self.grid_import_price = 0.4 # $0.40 / kW
-        
-    def step(self, demand_kw: float, timestep_hours: float = 1.0) -> dict:
-        """Simulate one timestep with given demand (kW)."""
 
-        # 1. Update environment-driven devices
+    def step(self, demand_kw: float, timestep_hours: float = 1.0) -> dict:
+        # 1. Update environment-driven devices (wind, solar)
         for d in self.devices:
             d.update_output(self.environment)
 
         # 2. Total renewable generation
         generation = sum(d.get_power_output() for d in self.devices)
 
-        # 3. Net balance (positive = demand > gen, negative = surplus)
+        # 3. Net demand after renewables (positive = shortfall, negative = surplus)
         net_demand = demand_kw - generation
 
-        # 4. Battery response
+        # 4. Battery response (charge or discharge)
         self.battery.update_output(self.environment, net_demand, timestep_hours)
         net_demand -= self.battery.get_power_output()
 
-        # 5. Grid import response
+        # 5. Grid response (import or export remaining balance)
         self.grid.update_output(self.environment, net_demand)
-        net_demand -= self.grid.get_power_output()
 
         # 6. Record results
         results = {
-            "demand_kw": demand_kw,
-            "generation_kw": generation,
-            "battery_kw": self.battery.get_power_output(),
-            "grid_kw": self.grid.get_power_output(),
-            "soc_kwh": self.battery.get_state_of_charge(),
-            "cost": self.grid.get_power_output() * self.grid_import_price
+            "Time": self.environment.current_time.strftime("%Y-%m-%d %H:%M"),
+            "Demand (kW)": demand_kw,
+            "Generation (kW)": generation,
+            "Battery Flow (kW)": self.battery.get_power_output(),
+            "Grid Flow (kW)": self.grid.get_power_output(), # Positive=Import, Negative=Export
+            "SOC (kWh)": self.battery.get_state_of_charge(),
+            "Step Cost ($)": self.grid.get_cost(timestep_hours)
         }
         return results
-    
+
+def get_realistic_demand(current_time: datetime, total_daily_kwh: float) -> float:
+    """
+    Returns a plausible kW demand for the given hour such that the total energy
+    matches total_daily_kwh, with 80% of energy during day (6-22) and 20% during night (22-6).
+    """
+    hour = current_time.hour
+
+    # Determine day/night weighting
+    if 6 <= hour < 22:
+        weight = 0.8 / 16  # 16 day hours share 80%
+    else:
+        weight = 0.2 / 8   # 8 night hours share 20%
+
+    # Base profile (simple sinusoidal for peaks)
+    if 6 <= hour < 12:  # morning ramp
+        profile = math.sin((hour - 6) * math.pi / 6)  # 0→1
+    elif 12 <= hour < 18:  # afternoon lull
+        profile = 0.2  # low constant
+    elif 18 <= hour < 22:  # evening peak
+        profile = math.sin((hour - 18) * math.pi / 4)  # 0→1
+    else:  # night
+        profile = 0.1  # minimal usage
+
+    # Scale to total daily energy
+    demand = profile * weight * total_daily_kwh  # multiply by 24h to get kW
+    # Add some random noise
+    demand += random.uniform(-0.1, 0.1) * demand
+
+    return max(0.1, demand)  # ensure nonzero
+
+# --- Simulation Setup ---
 e = Environment()
 
 m = MicrogridManager(
     environment=e,
     devices=[
-        WindTurbine("Wind1", rated_power=600, direction=225),   # SW-aligned small turbine
-        WindTurbine("Wind2", rated_power=1200, direction=180),  # larger turbine
-        SolarPanel("Solar", rated_power=400)                    # realistic rooftop/field array
+        SolarPanel("Solar", rated_power=6, temp_coefficient=0.004)
     ],
-    battery=Battery("Battery", capacity_kwh=2000, max_power_kw=1000, initial_charge=0.8),
-    grid=GridImport("Grid")
+    battery=Battery("Battery", capacity_kwh=15, max_power_kw=3.5, 
+                    efficiency=0.90, initial_charge=0.8),
+    grid=GridConnection("Grid", import_price=0.40, export_price=0.08)
 )
 
-while True:
-    if e.current_time.hour > 18:
-        demand = 0
-    else:
-        demand = 250
-    d = m.step(demand_kw=demand, timestep_hours=6)
-    e.step(6)
-    print(e.wind_direction, e.wind_speed, e.current_time)
-    print(d)
-    print()
-    time.sleep(3)
+print("--- Starting Microgrid Simulation ---")
+total_cost = 0.0
+total_demand = 0.0
+for i in range(24): # Simulate for one week
+    timestep = 1 # 1 hour timestep
     
+    demand = get_realistic_demand(e.current_time, 24)
+    
+    results = m.step(demand_kw=demand, timestep_hours=timestep)
+    total_cost += results["Step Cost ($)"]
+    total_demand += results['Demand (kW)']
+    
+    # Print results in a formatted way
+    print(
+        f"{results['Time']} | "
+        f"Demand: {results['Demand (kW)']:>6.1f}kW | "
+        f"Gen: {results['Generation (kW)']:>6.1f}kW | "
+        f"Battery: {results['Battery Flow (kW)']:>7.1f}kW | "
+        f"Grid: {results['Grid Flow (kW)']:>7.1f}kW | "
+        f"SOC: {results['SOC (kWh)']:>7.1f}kWh | "
+        f"Cost: ${results['Step Cost ($)']:>6.2f} | "
+        f"Total Cost: ${total_cost:>7.2f}  | "
+        f"Total demand: {total_demand}"
+    )
+    
+    e.step(timestep)
