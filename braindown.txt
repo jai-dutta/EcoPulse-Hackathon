@@ -1,0 +1,2 @@
+Plan:
+Focus Challenge: How can we provide complete visibility on the operation of a microgrid?
