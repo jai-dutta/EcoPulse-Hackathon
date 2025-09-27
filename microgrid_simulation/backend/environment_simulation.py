@@ -9,9 +9,17 @@ import math
 
 
 class Environment:
+    __instance = None
+    
     def __init__(self):
         self.current_time: datetime = datetime.now()
         self.set_environment_values()
+    @staticmethod
+    def get_instance():
+        if Environment.__instance == None:
+            __instance = Environment()
+        return __instance
+
 
     def set_environment_values(self):
         self.cloud_cover: float = self.get_cloud_cover()

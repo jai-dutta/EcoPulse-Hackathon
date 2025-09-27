@@ -45,17 +45,17 @@
             min-height: 100vh;
         }
 
-        /* Sidebar */
+        /* Sidebar - Fixed the conflicting properties */
         .sidebar {
             background: linear-gradient(180deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
             color: white;
             padding: 2rem 1.5rem;
             box-shadow: 4px 0 20px rgba(0,0,0,0.1);
-            z-index: 100;
             position: fixed;
             width: 280px;
             height: 100vh;
             overflow-y: auto;
+            z-index: 100;
         }
 
         .logo {
@@ -125,10 +125,12 @@
             font-size: 1.1rem;
         }
 
-        /* Main Content */
+        /* Main Content - Fixed width calculation */
         .main-content {
             padding: 2rem;
             margin-left: 280px;
+            width: calc(100vw - 280px);
+            min-height: 100vh;
             overflow-y: auto;
         }
 
@@ -390,7 +392,7 @@
         .page.active {
             display: block;
         }
-
+        
         /* Responsive */
         @media (max-width: 1024px) {
             .dashboard {
@@ -401,6 +403,7 @@
             }
             .main-content {
                 margin-left: 0;
+                width: 100%;
             }
         }
 
@@ -579,6 +582,42 @@
             color: var(--secondary);
             font-size: 0.875rem;
         }
+        
+        /* Real-time status indicators */
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-online { background-color: var(--success); }
+        .status-offline { background-color: var(--danger); }
+        .status-warning { background-color: var(--warning); }
+        
+        /* Chart improvements */
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+            margin: 1rem 0;
+        }
+        
+        /* Grid Connection Status */
+        .grid-status {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .grid-status-item {
+            flex: 1;
+            text-align: center;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 0.75rem;
+        }
     </style>
 </head>
 <body>
@@ -639,6 +678,18 @@
                 <div class="nav-item" data-page="settings">
                     <i class="fas fa-cog"></i>
                     <span>Settings</span>
+                </div>
+            </div>
+            
+            <!-- System Status Indicator -->
+            <div class="nav-section" style="margin-top: auto; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                <div class="nav-title">System Status</div>
+                <div style="display: flex; align-items: center; padding: 0.5rem 1rem;">
+                    <span class="status-indicator status-online" id="system-status-indicator"></span>
+                    <span id="system-status-text">All Systems Operational</span>
+                </div>
+                <div style="font-size: 0.75rem; padding: 0 1rem; color: #94a3b8;">
+                    Last updated: <span id="last-updated-time">--:--:--</span>
                 </div>
             </div>
         </div>
@@ -885,7 +936,6 @@
                 </div>
             </div>
 
-            <!-- Other pages would follow similar structure -->
             <!-- Diesel Control Page -->
             <div class="page" id="diesel">
                 <div class="header">
@@ -991,7 +1041,142 @@
                 </div>
             </div>
 
-            <!-- Add more pages for Grid, Analytics, History, Settings as needed -->
+            <!-- Grid Connections Page -->
+            <div class="page" id="grid">
+                <div class="header">
+                    <h2><i class="fas fa-plug"></i> Grid Connection Management</h2>
+                    <button class="btn btn-primary" onclick="showAddGridModal()">
+                        <i class="fas fa-plus"></i> Add Grid Connection
+                    </button>
+                </div>
+                
+                <div class="cards-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Grid Status</h3>
+                            <div class="card-icon icon-grid">
+                                <i class="fas fa-plug"></i>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="grid-power">-- kW</div>
+                            <div class="stat-label">Current Power Flow</div>
+                        </div>
+                        <div class="stat-grid">
+                            <div class="stat-item">
+                                <div class="stat-value" id="grid-import-price">-- $/kWh</div>
+                                <div class="stat-label">Import Price</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="grid-export-price">-- $/kWh</div>
+                                <div class="stat-label">Export Price</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Grid Connection</h3>
+                            <div class="card-icon icon-grid">
+                                <i class="fas fa-exchange-alt"></i>
+                            </div>
+                        </div>
+                        <div class="grid-status">
+                            <div class="grid-status-item">
+                                <div class="stat-value" id="grid-import-total">-- kWh</div>
+                                <div class="stat-label">Total Imported</div>
+                            </div>
+                            <div class="grid-status-item">
+                                <div class="stat-value" id="grid-export-total">-- kWh</div>
+                                <div class="stat-label">Total Exported</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Grid Connections</h3>
+                        <span class="badge badge-success" id="grid-count">0 connections</span>
+                    </div>
+                    <div class="device-list" id="grid-connections-list">
+                        <!-- Grid connections will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Page -->
+            <div class="page" id="analytics">
+                <div class="header">
+                    <h2><i class="fas fa-chart-line"></i> System Analytics</h2>
+                    <div class="time-display">
+                        <i class="far fa-calendar"></i>
+                        <span id="analytics-range">Last 24 hours</span>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Energy Production Over Time</h3>
+                        <div class="card-icon icon-environment">
+                            <i class="fas fa-chart-bar"></i>
+                        </div>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="energy-production-chart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="cards-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Cost Analysis</h3>
+                            <div class="card-icon icon-diesel">
+                                <i class="fas fa-dollar-sign"></i>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="total-cost">-- $</div>
+                            <div class="stat-label">Total Operational Cost</div>
+                        </div>
+                        <div class="stat-grid">
+                            <div class="stat-item">
+                                <div class="stat-value" id="diesel-cost">-- $</div>
+                                <div class="stat-label">Diesel Cost</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="grid-cost">-- $</div>
+                                <div class="stat-label">Grid Cost</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Efficiency Metrics</h3>
+                            <div class="card-icon icon-battery">
+                                <i class="fas fa-tachometer-alt"></i>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="system-efficiency">--%</div>
+                            <div class="stat-label">System Efficiency</div>
+                        </div>
+                        <div class="stat-grid">
+                            <div class="stat-item">
+                                <div class="stat-value" id="renewable-efficiency">--%</div>
+                                <div class="stat-label">Renewable Efficiency</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="battery-efficiency">--%</div>
+                                <div class="stat-label">Battery Efficiency</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add more pages for History, Settings as needed -->
         </div>
     </div>
 
@@ -1038,15 +1223,161 @@
         const API_BASE = 'http://localhost:8000';
         let currentData = null;
         let simulationStep = 0;
-
+        let simulationChart = null;
+        let energyProductionChart = null;
+        let pollInterval = null;
+        
+        // Chart colors
+        const chartColors = {
+            wind: '#3b82f6',
+            solar: '#f59e0b',
+            diesel: '#ef4444',
+            battery: '#10b981',
+            grid: '#8b5cf6',
+            demand: '#64748b'
+        };
+    
+        // Helpers
+        const byId = (id) => document.getElementById(id);
+        const setText = (id, text) => { const el = byId(id); if (el) el.textContent = text; };
+        const setWidth = (id, width) => { const el = byId(id); if (el) el.style.width = width; };
+        const setHeight = (id, height) => { const el = byId(id); if (el) el.style.height = height; };
+        const toNum = (v) => {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : 0;
+        };
+        const fmtNum = (v, digits = 2) => {
+            const n = Number(v);
+            return Number.isFinite(n) ? n.toFixed(digits) : '--';
+        };
+        
+        // Format currency
+        const fmtCurrency = (v) => {
+            const n = Number(v);
+            return Number.isFinite(n) ? '$' + n.toFixed(2) : '--';
+        };
+    
         // Initialize dashboard
         document.addEventListener('DOMContentLoaded', function() {
             initializeNavigation();
             initializeTabs();
-            loadDashboardData();
-            setInterval(loadDashboardData, 5000); // Refresh every 5 seconds
+            initializeCharts();
+            const form = byId('device-form');
+            if (form) form.addEventListener('submit', onDeviceFormSubmit);
+    
+            // Start polling for data
+            startPolling();
+            
+            // Set up real-time clock
+            updateClock();
+            setInterval(updateClock, 1000);
         });
-
+        
+        // Start polling for data updates
+        function startPolling() {
+            // Clear existing interval if any
+            if (pollInterval) clearInterval(pollInterval);
+            
+            // Load data immediately
+            loadDashboardData();
+            
+            // Set up polling every 5 seconds
+            pollInterval = setInterval(loadDashboardData, 5000);
+        }
+        
+        // Update real-time clock
+        function updateClock() {
+            const now = new Date();
+            setText('current-time', now.toLocaleTimeString());
+            setText('last-updated-time', now.toLocaleTimeString());
+        }
+        
+        // Initialize charts
+        function initializeCharts() {
+            // Simulation Chart
+            const simCtx = document.getElementById('simulation-chart')?.getContext('2d');
+            if (simCtx) {
+                simulationChart = new Chart(simCtx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [
+                            {
+                                label: 'Total Generation',
+                                data: [],
+                                borderColor: chartColors.wind,
+                                backgroundColor: chartColors.wind + '20',
+                                tension: 0.4,
+                                fill: true
+                            },
+                            {
+                                label: 'Demand',
+                                data: [],
+                                borderColor: chartColors.demand,
+                                borderDash: [5, 5],
+                                tension: 0.4,
+                                fill: false
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Power (kW)'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Simulation Step'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Energy Production Chart
+            const energyCtx = document.getElementById('energy-production-chart')?.getContext('2d');
+            if (energyCtx) {
+                energyProductionChart = new Chart(energyCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Wind', 'Solar', 'Diesel', 'Battery', 'Grid'],
+                        datasets: [{
+                            label: 'Energy Production (kWh)',
+                            data: [0, 0, 0, 0, 0],
+                            backgroundColor: [
+                                chartColors.wind,
+                                chartColors.solar,
+                                chartColors.diesel,
+                                chartColors.battery,
+                                chartColors.grid
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Energy (kWh)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+    
         // Initialize page navigation
         function initializeNavigation() {
             const navItems = document.querySelectorAll('.nav-item');
@@ -1064,11 +1395,17 @@
                     
                     // Show selected page
                     const pageId = this.getAttribute('data-page');
-                    document.getElementById(pageId).classList.add('active');
+                    const pageEl = byId(pageId);
+                    if (pageEl) pageEl.classList.add('active');
+                    
+                    // If analytics page is selected, update the chart
+                    if (pageId === 'analytics') {
+                        updateAnalyticsCharts();
+                    }
                 });
             });
         }
-
+    
         // Initialize tab functionality
         function initializeTabs() {
             // Device page tabs
@@ -1077,7 +1414,7 @@
                 tab.addEventListener('click', function() {
                     deviceTabs.forEach(t => t.classList.remove('active'));
                     this.classList.add('active');
-                    // In a real app, you would filter devices here
+                    filterDevices(this.getAttribute('data-tab'));
                 });
             });
             
@@ -1091,142 +1428,301 @@
                 });
             });
         }
-
+        
+        // Filter devices by type
+        function filterDevices(filter) {
+            const devices = currentData?.devices || [];
+            const container = byId('devices-management-list');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            let filteredDevices = devices;
+            if (filter !== 'all') {
+                filteredDevices = devices.filter(device => {
+                    switch(filter) {
+                        case 'renewable':
+                            return device.type === 'WindTurbine' || device.type === 'SolarPanel';
+                        case 'storage':
+                            return device.type === 'Battery';
+                        case 'generation':
+                            return device.type === 'DieselGenerator' || device.type === 'WindTurbine' || device.type === 'SolarPanel';
+                        default:
+                            return true;
+                    }
+                });
+            }
+            
+            filteredDevices.forEach(device => {
+                container.appendChild(createDeviceElement(device, true));
+            });
+        }
+    
         // Load all dashboard data
         async function loadDashboardData() {
             try {
                 const response = await fetch(`${API_BASE}/`);
+                if (!response.ok) {
+                    const err = await response.text();
+                    throw new Error(err || `HTTP ${response.status}`);
+                }
                 currentData = await response.json();
                 updateDashboard(currentData);
+                
+                // Update system status indicator
+                updateSystemStatus(currentData);
             } catch (error) {
                 console.error('Error loading dashboard data:', error);
                 showNotification('Error connecting to server', 'error');
+                
+                // Update system status to error
+                setText('system-status-text', 'Connection Error');
+                byId('system-status-indicator').className = 'status-indicator status-offline';
             }
         }
-
+        
+        // Update system status indicator
+        function updateSystemStatus(data) {
+            const statusIndicator = byId('system-status-indicator');
+            const statusText = byId('system-status-text');
+            
+            if (!data || !data.devices || data.devices.length === 0) {
+                statusIndicator.className = 'status-indicator status-warning';
+                statusText.textContent = 'No Devices Connected';
+                return;
+            }
+            
+            // Check if any critical devices are offline (simplified check)
+            const hasCriticalIssues = data.devices.some(device => 
+                toNum(device.power_output) < 0 && 
+                (device.type === 'DieselGenerator' || device.type === 'Battery')
+            );
+            
+            if (hasCriticalIssues) {
+                statusIndicator.className = 'status-indicator status-warning';
+                statusText.textContent = 'System Issues Detected';
+            } else {
+                statusIndicator.className = 'status-indicator status-online';
+                statusText.textContent = 'All Systems Operational';
+            }
+        }
+    
         // Update dashboard with new data
         function updateDashboard(data) {
             // Update time
-            document.getElementById('current-time').textContent = 
-                new Date(data.timestamp).toLocaleTimeString();
-            document.getElementById('sim-time').textContent = 
-                new Date(data.timestamp).toLocaleTimeString();
-
+            setText('current-time', new Date(data.timestamp).toLocaleTimeString());
+            setText('sim-time', new Date(data.timestamp).toLocaleTimeString());
+    
             // Update environment stats
-            document.getElementById('temp-value').textContent = `${data.environment.temperature}°C`;
-            document.getElementById('wind-value').textContent = `${data.environment.wind_speed} m/s`;
-            document.getElementById('radiation-value').textContent = `${data.environment.solar_radiation} W/m²`;
-            document.getElementById('wind-dir-value').textContent = `${data.environment.wind_direction}°`;
-
+            const env = data.environment || {};
+            setText('temp-value', `${fmtNum(env.temperature, 1)}°C`);
+            setText('wind-value', `${fmtNum(env.wind_speed, 1)} m/s`);
+            setText('radiation-value', `${fmtNum(env.solar_radiation, 0)} W/m²`);
+            setText('wind-dir-value', `${fmtNum(env.wind_direction, 0)}°`);
+    
             // Update power generation
-            document.getElementById('total-generation').textContent = `${data.total_generation.toFixed(2)} kW`;
-            document.getElementById('total-power').textContent = `${data.total_generation.toFixed(2)} kW`;
-            
+            const totalGen = toNum(data.total_generation);
+            setText('total-generation', `${fmtNum(totalGen)} kW`);
+            setText('total-power', `${fmtNum(totalGen)} kW`);
+    
             // Calculate renewable vs diesel generation
             let renewable = 0;
             let diesel = 0;
             let wind = 0;
             let solar = 0;
-            let battery = 0;
+            let batteryAbs = 0;
+            let gridPower = 0;
             
-            data.devices.forEach(device => {
+            (data.devices || []).forEach(device => {
+                const p = toNum(device.power_output);
                 if (device.type === 'WindTurbine') {
-                    renewable += device.power_output;
-                    wind += device.power_output;
+                    renewable += p; wind += p;
                 } else if (device.type === 'SolarPanel') {
-                    renewable += device.power_output;
-                    solar += device.power_output;
+                    renewable += p; solar += p;
                 } else if (device.type === 'DieselGenerator') {
-                    diesel += device.power_output;
+                    diesel += p;
                 } else if (device.type === 'Battery') {
-                    battery += Math.abs(device.power_output);
+                    batteryAbs += Math.abs(p);
+                } else if (device.type === 'GridConnection') {
+                    gridPower += p;
                 }
             });
-            
+    
             // Update energy mix visualization
-            const totalPower = renewable + diesel + battery;
-            if (totalPower > 0) {
-                document.getElementById('wind-bar').style.height = `${(wind / totalPower) * 100}%`;
-                document.getElementById('solar-bar').style.height = `${(solar / totalPower) * 100}%`;
-                document.getElementById('diesel-bar').style.height = `${(diesel / totalPower) * 100}%`;
-                document.getElementById('battery-bar').style.height = `${(battery / totalPower) * 100}%`;
+            const totalForMix = wind + solar + diesel + batteryAbs + Math.abs(gridPower);
+            if (totalForMix > 0) {
+                setHeight('wind-bar', `${(wind / totalForMix) * 100}%`);
+                setHeight('solar-bar', `${(solar / totalForMix) * 100}%`);
+                setHeight('diesel-bar', `${(diesel / totalForMix) * 100}%`);
+                setHeight('battery-bar', `${(batteryAbs / totalForMix) * 100}%`);
             }
-            
-            document.getElementById('renewable-generation').textContent = `${renewable.toFixed(2)} kW`;
-            document.getElementById('diesel-generation').textContent = `${diesel.toFixed(2)} kW`;
-            document.getElementById('renewable-percent').textContent = `${((renewable / data.total_generation) * 100).toFixed(1)}%`;
-
-            // Update battery status
+    
+            setText('renewable-generation', `${fmtNum(renewable)} kW`);
+            setText('diesel-generation', `${fmtNum(diesel)} kW`);
+            if (totalGen > 0) {
+                setText('renewable-percent', `${((renewable / totalGen) * 100).toFixed(1)}%`);
+            } else {
+                setText('renewable-percent', '--%');
+            }
+    
+            // Update battery status (use first battery for main display, plus summary)
             if (data.batteries && data.batteries.length > 0) {
-                const batteryData = data.batteries[0]; // Take first battery for main display
-                document.getElementById('soc-percent').textContent = `${batteryData.soc_percent.toFixed(1)}%`;
-                document.getElementById('avg-soc').textContent = `${batteryData.soc_percent.toFixed(1)}%`;
-                document.getElementById('soc-bar').style.width = `${batteryData.soc_percent}%`;
-                document.getElementById('battery-power').textContent = `${batteryData.current_power.toFixed(2)} kW`;
-                document.getElementById('battery-capacity').textContent = `${batteryData.capacity_kwh} kWh`;
-                document.getElementById('total-battery-power').textContent = `${batteryData.current_power.toFixed(2)} kW`;
-                document.getElementById('total-battery-capacity').textContent = `${batteryData.capacity_kwh} kWh`;
-                document.getElementById('total-battery-soc').textContent = `${batteryData.soc_percent.toFixed(1)}%`;
+                const batList = data.batteries;
+                const first = batList[0];
+                const avgSoc = batList.reduce((s, b) => s + toNum(b.soc_percent), 0) / batList.length;
+                const totalCapacity = batList.reduce((s, b) => s + toNum(b.capacity_kwh), 0);
+                const totalPower = batList.reduce((s, b) => s + toNum(b.current_power), 0);
+    
+                setText('soc-percent', `${fmtNum(first.soc_percent, 1)}%`);
+                setText('avg-soc', `${fmtNum(avgSoc, 1)}%`);
+                setWidth('soc-bar', `${Math.max(0, Math.min(100, toNum(first.soc_percent)))}%`);
+                setText('battery-power', `${fmtNum(first.current_power)} kW`);
+                setText('battery-capacity', `${fmtNum(first.capacity_kwh, 0)} kWh`);
+    
+                setText('total-battery-power', `${fmtNum(totalPower)} kW`);
+                setText('total-battery-capacity', `${fmtNum(totalCapacity, 0)} kWh`);
+                setText('total-battery-soc', `${fmtNum(avgSoc, 1)}%`);
+                
+                // Update battery health (simulated data)
+                setText('battery-health', `${fmtNum(95 - (simulationStep / 10))}%`);
+                setWidth('health-bar', `${95 - (simulationStep / 10)}%`);
+                setText('cycle-count', Math.floor(simulationStep / 5));
+            } else {
+                // Clear battery summary if none
+                setText('soc-percent', '--%');
+                setWidth('soc-bar', '0%');
+                setText('battery-power', '-- kW');
+                setText('battery-capacity', '-- kWh');
+                setText('total-battery-power', '-- kW');
+                setText('total-battery-capacity', '-- kWh');
+                setText('total-battery-soc', '--%');
+                setText('battery-health', '--%');
+                setText('cycle-count', '--');
             }
-
+    
             // Update device list
-            updateDeviceList(data.devices);
-            document.getElementById('device-count').textContent = `${data.device_count} devices`;
-
+            updateDeviceList(data.devices || []);
+            setText('device-count', `${data.device_count} devices`);
+    
             // Update diesel strategy
-            document.getElementById('diesel-strategy-badge').textContent = 
-                data.diesel_strategy.replace('_', ' ').toUpperCase();
-            
-            // Update system status
-            document.getElementById('grid-power').textContent = `${data.total_grid_power.toFixed(2)} kW`;
+            if (data.diesel_strategy) {
+                setText('diesel-strategy-badge', data.diesel_strategy.replace('_', ' ').toUpperCase());
+            }
+    
+            // Grid power
+            setText('grid-power', `${fmtNum(data.total_grid_power)} kW`);
+            setText('grid-import-price', `${fmtNum(data.grid_import_price, 3)}`);
+            setText('grid-export-price', `${fmtNum(data.grid_export_price, 3)}`);
             
             // Calculate total diesel usage
             let totalDieselUsage = 0;
-            data.devices.forEach(device => {
-                if (device.type === 'DieselGenerator' && device.current_diesel_usage) {
-                    totalDieselUsage += device.current_diesel_usage;
+            (data.devices || []).forEach(device => {
+                if (device.type === 'DieselGenerator') {
+                    totalDieselUsage += toNum(device.current_diesel_usage);
                 }
             });
-            document.getElementById('diesel-usage').textContent = `${totalDieselUsage.toFixed(2)} L/h`;
-            document.getElementById('diesel-usage-hour').textContent = `${totalDieselUsage.toFixed(2)} L/h`;
+            setText('diesel-usage-hour', `${fmtNum(totalDieselUsage)} L/h`);
+            const duEl = byId('diesel-usage');
+            if (duEl) duEl.textContent = `${fmtNum(totalDieselUsage)} L/h`;
             
             // Update simulation status
-            document.getElementById('sim-demand').textContent = `${data.total_generation.toFixed(2)} kW`;
-            document.getElementById('sim-step').textContent = simulationStep;
+            setText('sim-demand', `${fmtNum(totalGen)} kW`);
+            setText('sim-step', simulationStep.toString());
             
             // Update device counts
-            const dieselGenerators = data.devices.filter(d => d.type === 'DieselGenerator');
-            document.getElementById('diesel-count').textContent = `${dieselGenerators.length} generators`;
+            const dieselGenerators = (data.devices || []).filter(d => d.type === 'DieselGenerator');
+            setText('diesel-count', `${dieselGenerators.length} generators`);
             
-            const batteries = data.devices.filter(d => d.type === 'Battery');
-            document.getElementById('battery-count').textContent = `${batteries.length} batteries`;
+            const batteries = (data.devices || []).filter(d => d.type === 'Battery');
+            setText('battery-count', `${batteries.length} batteries`);
+            
+            const gridConnections = (data.devices || []).filter(d => d.type === 'GridConnection');
+            setText('grid-count', `${gridConnections.length} connections`);
+            
+            // Update analytics data
+            updateAnalyticsData(data);
         }
-
+        
+        // Update analytics data
+        function updateAnalyticsData(data) {
+            // Calculate costs (simplified)
+            const dieselCost = toNum(data.total_diesel_usage) * 1.5; // Assume $1.5 per liter
+            const gridCost = Math.max(0, toNum(data.total_grid_power)) * toNum(data.grid_import_price);
+            const totalCost = dieselCost + gridCost;
+            
+            setText('total-cost', fmtCurrency(totalCost));
+            setText('diesel-cost', fmtCurrency(dieselCost));
+            setText('grid-cost', fmtCurrency(gridCost));
+            
+            // Calculate efficiencies (simplified)
+            const totalGeneration = toNum(data.total_generation);
+            const renewableGeneration = (data.devices || []).reduce((sum, device) => {
+                if (device.type === 'WindTurbine' || device.type === 'SolarPanel') {
+                    return sum + toNum(device.power_output);
+                }
+                return sum;
+            }, 0);
+            
+            const systemEfficiency = totalGeneration > 0 ? (renewableGeneration / totalGeneration) * 100 : 0;
+            const renewableEfficiency = 85 + (Math.random() * 10); // Simulated
+            const batteryEfficiency = 90 + (Math.random() * 5); // Simulated
+            
+            setText('system-efficiency', `${fmtNum(systemEfficiency, 1)}%`);
+            setText('renewable-efficiency', `${fmtNum(renewableEfficiency, 1)}%`);
+            setText('battery-efficiency', `${fmtNum(batteryEfficiency, 1)}%`);
+        }
+        
+        // Update analytics charts
+        function updateAnalyticsCharts() {
+            if (!energyProductionChart || !currentData) return;
+            
+            const data = currentData;
+            let wind = 0, solar = 0, diesel = 0, battery = 0, grid = 0;
+            
+            (data.devices || []).forEach(device => {
+                const p = toNum(device.power_output);
+                switch(device.type) {
+                    case 'WindTurbine': wind += p; break;
+                    case 'SolarPanel': solar += p; break;
+                    case 'DieselGenerator': diesel += p; break;
+                    case 'Battery': battery += Math.abs(p); break;
+                    case 'GridConnection': grid += Math.abs(p); break;
+                }
+            });
+            
+            energyProductionChart.data.datasets[0].data = [wind, solar, diesel, battery, grid];
+            energyProductionChart.update();
+        }
+    
         // Update device list
         function updateDeviceList(devices) {
-            const container = document.getElementById('devices-list');
-            const managementContainer = document.getElementById('devices-management-list');
-            const dieselContainer = document.getElementById('diesel-generators-list');
-            const batteriesContainer = document.getElementById('batteries-list');
-            
-            container.innerHTML = '';
-            managementContainer.innerHTML = '';
-            dieselContainer.innerHTML = '';
-            batteriesContainer.innerHTML = '';
+            const container = byId('devices-list');
+            const managementContainer = byId('devices-management-list');
+            const dieselContainer = byId('diesel-generators-list');
+            const batteriesContainer = byId('batteries-list');
+            const gridContainer = byId('grid-connections-list');
 
+            if (container) container.innerHTML = '';
+            if (managementContainer) managementContainer.innerHTML = '';
+            if (dieselContainer) dieselContainer.innerHTML = '';
+            if (batteriesContainer) batteriesContainer.innerHTML = '';
+            if (gridContainer) gridContainer.innerHTML = '';
+    
             devices.forEach(device => {
-                const deviceElement = createDeviceElement(device);
-                container.appendChild(deviceElement.cloneNode(true));
-                managementContainer.appendChild(deviceElement.cloneNode(true));
-                
-                if (device.type === 'DieselGenerator') {
+                const item = createDeviceElement(device, false);
+                if (container) container.appendChild(item);
+    
+                if (managementContainer) managementContainer.appendChild(createDeviceElement(device, true));
+                if (device.type === 'DieselGenerator' && dieselContainer) {
                     dieselContainer.appendChild(createDeviceElement(device, true));
-                } else if (device.type === 'Battery') {
+                } else if (device.type === 'Battery' && batteriesContainer) {
                     batteriesContainer.appendChild(createDeviceElement(device, true));
+                } else if (device.type === 'GridConnection' && gridContainer) {
+                    gridContainer.appendChild(createDeviceElement(device, true));
                 }
             });
         }
-
+    
         // Create device element
         function createDeviceElement(device, withControls = false) {
             const deviceElement = document.createElement('div');
@@ -1257,25 +1753,25 @@
                     typeClass = 'icon-grid';
                     break;
             }
-
+    
             let controlsHTML = '';
             if (withControls) {
                 controlsHTML = `
                     <div style="margin-left: 1rem;">
-                        <button class="btn" style="padding: 0.5rem;" onclick="removeDevice('${device.name}')">
+                        <button class="btn" style="padding: 0.5rem;" onclick="removeDevice('${device.name.replace(/'/g, "\\'")}')">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
                 `;
             }
-
+    
             deviceElement.innerHTML = `
                 <div class="device-info">
                     <div class="device-name">${device.name}</div>
                     <div class="device-spec">${device.type} • ${getDeviceSpec(device)}</div>
                 </div>
                 <div class="device-output">
-                    <div class="output-value">${device.power_output.toFixed(2)}</div>
+                    <div class="output-value">${fmtNum(device.power_output)}</div>
                     <div class="output-unit">kW</div>
                 </div>
                 <div class="card-icon ${typeClass}" style="width: 40px; height: 40px; margin-left: 1rem;">
@@ -1286,39 +1782,50 @@
             
             return deviceElement;
         }
-
+    
         // Get device specification string
         function getDeviceSpec(device) {
             switch(device.type) {
                 case 'WindTurbine':
-                    return `${device.rated_power} kW • ${device.direction}°`;
+                    return `${fmtNum(device.rated_power, 0)} kW • ${fmtNum(device.direction, 0)}°`;
                 case 'SolarPanel':
-                    return `${device.rated_power} kW`;
+                    return `${fmtNum(device.rated_power, 0)} kW`;
                 case 'DieselGenerator':
-                    return `${device.rated_power} kW`;
+                    return `${fmtNum(device.rated_power, 0)} kW`;
                 case 'Battery':
-                    return `${device.capacity_kwh} kWh`;
+                    return `${fmtNum(device.capacity_kwh, 0)} kWh • ${fmtNum(device.soc_percent, 1)}% SOC`;
                 case 'GridConnection':
-                    return `Import: $${device.import_price}/kWh`;
+                    return `Import: $${fmtNum(device.import_price, 2)}/kWh • Export: $${fmtNum(device.export_price, 2)}/kWh`;
                 default:
                     return '';
             }
         }
-
+    
         // Modal functions
         function showAddDeviceModal() {
-            document.getElementById('add-device-modal').style.display = 'flex';
-            updateDeviceForm('wind'); // Default to wind turbine
+            const modal = byId('add-device-modal');
+            if (modal) {
+                modal.style.display = 'flex';
+                updateDeviceForm('wind'); // Default to wind turbine
+            }
+        }
+        
+        function showAddGridModal() {
+            const tab = document.querySelector('#add-device-modal .tab[data-device-type="grid"]');
+            if (tab) tab.click();
+            showAddDeviceModal();
         }
 
         function closeModal(modalId) {
-            document.getElementById(modalId).style.display = 'none';
+            const modal = byId(modalId);
+            if (modal) modal.style.display = 'none';
         }
-
+    
         function updateDeviceForm(deviceType) {
-            const fieldsContainer = document.getElementById('device-specific-fields');
+            const fieldsContainer = byId('device-specific-fields');
+            if (!fieldsContainer) return;
+    
             let fieldsHTML = '';
-            
             switch(deviceType) {
                 case 'wind':
                     fieldsHTML = `
@@ -1408,13 +1915,13 @@
             
             fieldsContainer.innerHTML = fieldsHTML;
         }
-
+    
         // Device form submission
-        document.getElementById('device-form').addEventListener('submit', async function(e) {
+        async function onDeviceFormSubmit(e) {
             e.preventDefault();
             
-            const deviceType = document.querySelector('#add-device-modal .tab.active').getAttribute('data-device-type');
-            const deviceName = document.getElementById('device-name').value;
+            const deviceType = document.querySelector('#add-device-modal .tab.active')?.getAttribute('data-device-type') || 'wind';
+            const deviceName = byId('device-name')?.value || '';
             
             let endpoint = '';
             let requestBody = {};
@@ -1424,46 +1931,46 @@
                     endpoint = '/add/windturbine';
                     requestBody = {
                         name: deviceName,
-                        rated_power: parseFloat(document.getElementById('rated-power').value),
-                        direction: parseInt(document.getElementById('direction').value),
-                        cut_in_speed: parseFloat(document.getElementById('cut-in-speed').value),
-                        rated_speed: parseFloat(document.getElementById('rated-speed').value),
-                        cut_out_speed: parseFloat(document.getElementById('cut-out-speed').value)
+                        rated_power: parseFloat(byId('rated-power').value),
+                        direction: parseInt(byId('direction').value),
+                        cut_in_speed: parseFloat(byId('cut-in-speed').value),
+                        rated_speed: parseFloat(byId('rated-speed').value),
+                        cut_out_speed: parseFloat(byId('cut-out-speed').value)
                     };
                     break;
                 case 'solar':
                     endpoint = '/add/solarpanel';
                     requestBody = {
                         name: deviceName,
-                        rated_power: parseFloat(document.getElementById('rated-power').value),
-                        temp_coefficient: parseFloat(document.getElementById('temp-coefficient').value),
-                        stc_temp: parseFloat(document.getElementById('stc-temp').value)
+                        rated_power: parseFloat(byId('rated-power').value),
+                        temp_coefficient: parseFloat(byId('temp-coefficient').value),
+                        stc_temp: parseFloat(byId('stc-temp').value)
                     };
                     break;
                 case 'diesel':
                     endpoint = '/add/dieselgenerator';
                     requestBody = {
                         name: deviceName,
-                        rated_power: parseFloat(document.getElementById('rated-power').value),
-                        diesel_usage_litre_per_kw: parseFloat(document.getElementById('diesel-usage').value)
+                        rated_power: parseFloat(byId('rated-power').value),
+                        diesel_usage_litre_per_kw: parseFloat(byId('diesel-usage').value)
                     };
                     break;
                 case 'battery':
                     endpoint = '/add/battery';
                     requestBody = {
                         name: deviceName,
-                        capacity_kwh: parseFloat(document.getElementById('capacity').value),
-                        max_power_kw: parseFloat(document.getElementById('max-power').value),
-                        efficiency: parseFloat(document.getElementById('efficiency').value),
-                        initial_charge: parseFloat(document.getElementById('initial-charge').value) / 100
+                        capacity_kwh: parseFloat(byId('capacity').value),
+                        max_power_kw: parseFloat(byId('max-power').value),
+                        efficiency: parseFloat(byId('efficiency').value),
+                        initial_charge: parseFloat(byId('initial-charge').value) / 100
                     };
                     break;
                 case 'grid':
                     endpoint = '/add/gridconnection';
                     requestBody = {
                         name: deviceName,
-                        import_price: parseFloat(document.getElementById('import-price').value),
-                        export_price: parseFloat(document.getElementById('export-price').value)
+                        import_price: parseFloat(byId('import-price').value),
+                        export_price: parseFloat(byId('export-price').value)
                     };
                     break;
             }
@@ -1480,15 +1987,15 @@
                     closeModal('add-device-modal');
                     loadDashboardData();
                 } else {
-                    const error = await response.json();
-                    showNotification(`Error: ${error.detail}`, 'error');
+                    const error = await response.json().catch(() => ({}));
+                    showNotification(`Error: ${error.detail || `HTTP ${response.status}`}`, 'error');
                 }
             } catch (error) {
                 console.error('Error adding device:', error);
                 showNotification('Error adding device', 'error');
             }
-        });
-
+        }
+    
         // Remove device
         async function removeDevice(deviceName) {
             if (confirm(`Are you sure you want to remove ${deviceName}?`)) {
@@ -1501,8 +2008,8 @@
                         showNotification(`Device ${deviceName} removed successfully`, 'success');
                         loadDashboardData();
                     } else {
-                        const error = await response.json();
-                        showNotification(`Error: ${error.detail}`, 'error');
+                        const error = await response.json().catch(() => ({}));
+                        showNotification(`Error: ${error.detail || `HTTP ${response.status}`}`, 'error');
                     }
                 } catch (error) {
                     console.error('Error removing device:', error);
@@ -1510,21 +2017,41 @@
                 }
             }
         }
-
+    
         // Simulation controls
         async function simulateStep() {
             try {
                 showNotification('Running simulation step...', 'info');
-                const demand = parseFloat(document.getElementById('demand-input').value) || 15.0;
-                const timestep = parseFloat(document.getElementById('timestep-input').value) || 1.0;
+                const demand = parseFloat(byId('demand-input')?.value) || 15.0;
+                const timestep = parseFloat(byId('timestep-input')?.value) || 1.0;
                 
                 const response = await fetch(`${API_BASE}/simulate/step`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ demand_kw: demand, timestep_hours: timestep })
                 });
-                const result = await response.json();
-                simulationStep++;
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(result.detail || `HTTP ${response.status}`);
+                }
+                
+                // Update simulation chart
+                if (simulationChart) {
+                    simulationStep++;
+                    simulationChart.data.labels.push(simulationStep.toString());
+                    simulationChart.data.datasets[0].data.push(toNum(result.total_generation));
+                    simulationChart.data.datasets[1].data.push(demand);
+                    
+                    // Keep only last 10 data points
+                    if (simulationChart.data.labels.length > 10) {
+                        simulationChart.data.labels.shift();
+                        simulationChart.data.datasets[0].data.shift();
+                        simulationChart.data.datasets[1].data.shift();
+                    }
+                    
+                    simulationChart.update();
+                }
+                
                 showNotification('Simulation step completed', 'success');
                 loadDashboardData();
             } catch (error) {
@@ -1532,14 +2059,17 @@
                 showNotification('Error running simulation', 'error');
             }
         }
-
+    
         async function simulateRealistic() {
             try {
                 showNotification('Running realistic simulation...', 'info');
                 const response = await fetch(`${API_BASE}/simulate/realistic?total_daily_kwh=15.0&timestep_hours=1.0`, {
                     method: 'POST'
                 });
-                const result = await response.json();
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(result.detail || `HTTP ${response.status}`);
+                }
                 simulationStep++;
                 showNotification('Realistic simulation completed', 'success');
                 loadDashboardData();
@@ -1548,16 +2078,19 @@
                 showNotification('Error running simulation', 'error');
             }
         }
-
+    
         // Diesel strategy control
         async function setDieselStrategy() {
-            const strategy = document.getElementById('strategy-select').value;
+            const strategy = byId('strategy-select')?.value || 'demand_following';
             try {
-                const response = await fetch(`${API_BASE}/diesel/strategy`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(strategy)
+                // API expects query parameter: strategy
+                const response = await fetch(`${API_BASE}/diesel/strategy?strategy=${encodeURIComponent(strategy)}`, {
+                    method: 'POST'
                 });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(result.detail || `HTTP ${response.status}`);
+                }
                 
                 // Update strategy description
                 let description = '';
@@ -1572,7 +2105,8 @@
                         description = 'Use manually set setpoints for each generator';
                         break;
                 }
-                document.getElementById('strategy-description').textContent = description;
+                setText('strategy-description', description);
+                setText('diesel-strategy-badge', strategy.replace('_', ' ').toUpperCase());
                 
                 showNotification(`Diesel strategy set to ${strategy}`, 'success');
                 loadDashboardData();
@@ -1581,11 +2115,12 @@
                 showNotification('Error setting diesel strategy', 'error');
             }
         }
-
+    
         // Notification system
         function showNotification(message, type = 'info') {
-            const notification = document.getElementById('notification');
-            const messageEl = document.getElementById('notification-message');
+            const notification = byId('notification');
+            const messageEl = byId('notification-message');
+            if (!notification || !messageEl) return;
             
             messageEl.textContent = message;
             
@@ -1601,17 +2136,39 @@
                 notification.classList.remove('show');
             }, 3000);
         }
-
+    
         // Utility functions for modal displays
         function showAddDieselModal() {
-            document.querySelector('#add-device-modal .tab[data-device-type="diesel"]').click();
+            const tab = document.querySelector('#add-device-modal .tab[data-device-type="diesel"]');
+            if (tab) tab.click();
             showAddDeviceModal();
         }
-
+    
         function showAddBatteryModal() {
-            document.querySelector('#add-device-modal .tab[data-device-type="battery"]').click();
+            const tab = document.querySelector('#add-device-modal .tab[data-device-type="battery"]');
+            if (tab) tab.click();
             showAddDeviceModal();
         }
+        
+        // Manual refresh function
+        function manualRefresh() {
+            loadDashboardData();
+            showNotification('Data refreshed manually', 'success');
+        }
+        
+        // Add manual refresh button to header
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add refresh button to each page header
+            document.querySelectorAll('.header').forEach(header => {
+                if (!header.querySelector('.refresh-btn')) {
+                    const refreshBtn = document.createElement('button');
+                    refreshBtn.className = 'btn btn-primary refresh-btn';
+                    refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh';
+                    refreshBtn.onclick = manualRefresh;
+                    header.appendChild(refreshBtn);
+                }
+            });
+        });
     </script>
 </body>
 </html>

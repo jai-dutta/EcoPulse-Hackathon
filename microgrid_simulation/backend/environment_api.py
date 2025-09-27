@@ -4,6 +4,7 @@ from environment_simulation import Environment
 from simulation_instances import get_environment_instance
 app = FastAPI(title="Microgrid Environment API")
 
+
 # Enable CORS for local dashboard
 app.add_middleware(
     CORSMiddleware,
@@ -86,3 +87,7 @@ def reset_environment():
     global env
     env = Environment()
     return {"message": "Environment reset to initial state", "environment": get_environment()}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8100)

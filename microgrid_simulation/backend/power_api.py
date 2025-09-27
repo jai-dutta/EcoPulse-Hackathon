@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -74,6 +74,21 @@ class DieselSetpointRequest(BaseModel):
 environment = get_environment_instance()
 microgrid = get_microgrid_instance()
 
+def _env_state():
+    return {
+        "time": environment.current_time.strftime("%Y-%m-%d %H:%M"),
+        "timestamp": environment.current_time.isoformat(),
+        "temperature": getattr(environment, "temperature", None),
+        "solar_radiation": getattr(environment, "solar_radiation", None),
+        "wind_speed": getattr(environment, "wind_speed", None),
+        "wind_direction": getattr(environment, "wind_direction", None),
+        "cloud_cover": getattr(environment, "cloud_cover", None),
+    }
+
+def _set_if_exists(obj, attr, value):
+    if hasattr(obj, attr) and value is not None:
+        setattr(obj, attr, value)
+
 @app.get("/")
 def get_microgrid_state():
     """Get current state of the microgrid system"""
@@ -133,7 +148,8 @@ def get_microgrid_state():
             "temperature": environment.temperature,
             "wind_speed": environment.wind_speed,
             "wind_direction": environment.wind_direction,
-            "solar_radiation": environment.solar_radiation
+            "solar_radiation": environment.solar_radiation,
+            "cloud_cover": getattr(environment, "cloud_cover", None)
         },
         "devices": device_states,
         "batteries": [
@@ -475,6 +491,71 @@ def get_diesel_strategies():
     }
 
 # === ENVIRONMENT CONTROL ===
+@app.get("/environment")
+def get_environment():
+    return _env_state()
+
+@app.post("/environment/update")
+def update_environment(req: EnvironmentUpdateRequest):
+    _set_if_exists(environment, "temperature", req.temperature)
+    _set_if_exists(environment, "wind_speed", req.wind_speed)
+    _set_if_exists(environment, "wind_direction", req.wind_direction)
+    _set_if_exists(environment, "solar_radiation", req.solar_radiation)
+    return {
+        "message": "Environment updated",
+        "environment": _env_state()
+    }
+
+@app.post("/environment/temperature")
+def set_temperature(temperature: float = Query(..., ge=-50, le=60)):
+    _set_if_exists(environment, "temperature", temperature)
+    return {"message": f"Temperature set to {temperature}°C", "environment": _env_state()}
+
+@app.post("/environment/solar_radiation")
+def set_solar_radiation(solar_radiation: float = Query(..., ge=0, le=1400)):
+    _set_if_exists(environment, "solar_radiation", solar_radiation)
+    return {"message": f"Solar radiation set to {solar_radiation} W/m²", "environment": _env_state()}
+
+@app.post("/environment/wind_speed")
+def set_wind_speed(wind_speed: float = Query(..., ge=0, le=100)):
+    _set_if_exists(environment, "wind_speed", wind_speed)
+    return {"message": f"Wind speed set to {wind_speed} m/s", "environment": _env_state()}
+
+@app.post("/environment/wind_direction")
+def set_wind_direction(wind_direction: float = Query(..., ge=0, lt=360)):
+    _set_if_exists(environment, "wind_direction", wind_direction)
+    return {"message": f"Wind direction set to {wind_direction}°", "environment": _env_state()}
+
+# Optional cloud cover endpoint if your Environment has cloud_cover
+@app.post("/environment/cloud_cover")
+def set_cloud_cover(cloud_cover: float = Query(..., ge=0, le=9)):
+    _set_if_exists(environment, "cloud_cover", cloud_cover)
+    return {"message": f"Cloud cover set to {cloud_cover}/9", "environment": _env_state()}
+
+@app.post("/step")
+def step_environment(timestep_hours: float = Query(1.0, gt=0, le=24)):
+    try:
+        environment.step(timestep_hours)
+        return {"message": f"Environment stepped by {timestep_hours} h", "environment": _env_state()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Environment step error: {str(e)}")
+
+@app.post("/reset")
+def reset_environment():
+    try:
+        if hasattr(environment, "reset") and callable(environment.reset):
+            environment.reset()
+        else:
+            # Best-effort reset if reset() is not implemented
+            _set_if_exists(environment, "temperature", 20.0)
+            _set_if_exists(environment, "wind_speed", 5.0)
+            _set_if_exists(environment, "wind_direction", 180.0)
+            _set_if_exists(environment, "solar_radiation", 500.0)
+            _set_if_exists(environment, "cloud_cover", 4.5)
+            _set_if_exists(environment, "current_time", datetime.now())
+        return {"message": "Environment reset", "environment": _env_state()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Environment reset error: {str(e)}")
 
 # === BATTERY & GRID ===
 

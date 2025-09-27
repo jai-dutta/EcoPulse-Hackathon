@@ -8,7 +8,7 @@ devices = []
 microgrid = MicrogridManager(env, devices)
 
 def get_environment_instance() -> Environment:
-    return env
+    return env.get_instance()
 
 def get_microgrid_instance() -> MicrogridManager:
     return microgrid
