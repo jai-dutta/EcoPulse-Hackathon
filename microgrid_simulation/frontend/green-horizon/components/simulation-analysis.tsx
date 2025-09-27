@@ -54,8 +54,14 @@ export function SimulationAnalysis({ systemStatus }: SimulationAnalysisProps) {
       })
 
       if (!response.ok) {
-        const errData = await response.json()
-        throw new Error(errData.detail || `API Error: ${response.statusText}`)
+        let errorText = `API Error: ${response.statusText}`
+        try {
+          const errData = await response.json()
+          errorText = errData.detail || errorText
+        } catch (e) {
+          // The response was not JSON
+        }
+        throw new Error(errorText)
       }
 
       const data = await response.json()

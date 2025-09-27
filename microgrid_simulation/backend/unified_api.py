@@ -311,6 +311,7 @@ def simulate_realistic_step(total_daily_kwh: float = Query(default=150.0), times
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Simulation error: {str(e)}")
 
+# === SIMULATION & ANALYSIS ===
 def run_simulation_for_duration(sim_microgrid, sim_environment, duration_days: int):
     """Helper to run a simulation for a given duration and return metrics."""
     total_diesel_usage_l, total_grid_import_kwh, total_cost, total_renewable_gen = 0, 0, 0, 0
@@ -364,7 +365,6 @@ def analyze_scenario(request: AnalysisRequest):
     microgrid_without_renewables = copy.deepcopy(microgrid)
     env_without_renewables = copy.deepcopy(environment)
     
-    # Remove all wind and solar devices for the baseline scenario
     microgrid_without_renewables.devices = [
         d for d in microgrid_without_renewables.devices 
         if not isinstance(d, (WindTurbine, SolarPanel))
@@ -372,12 +372,11 @@ def analyze_scenario(request: AnalysisRequest):
         
     results_without_renewables = run_simulation_for_duration(microgrid_without_renewables, env_without_renewables, request.duration_days)
     
-    # --- Calculate savings ---
     cost_saved = results_without_renewables["total_cost"] - results_with_renewables["total_cost"]
     co2_saved_kg = results_without_renewables["co2_emissions_kg"] - results_with_renewables["co2_emissions_kg"]
     
-    cost_saving_percent = (cost_saved / results_without_renewables["total_cost"]) * 100 if results_without_renewables["total_cost"] != 0 else 0
-    co2_saving_percent = (co2_saved_kg / results_without_renewables["co2_emissions_kg"]) * 100 if results_without_renewables["co2_emissions_kg"] != 0 else 0
+    cost_saving_percent = (cost_saved / results_without_renewables["total_cost"]) * 100 if results_without_renewables.get("total_cost") != 0 else 0
+    co2_saving_percent = (co2_saved_kg / results_without_renewables["co2_emissions_kg"]) * 100 if results_without_renewables.get("co2_emissions_kg") != 0 else 0
 
     return {
         "with_renewables": results_with_renewables,
