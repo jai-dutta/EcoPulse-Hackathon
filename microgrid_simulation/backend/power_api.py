@@ -14,7 +14,7 @@ from power_simulation import (
     get_realistic_demand, GridConnection, Battery
 )
 
-app = FastAPI(title="Microgrid Environment API", version="1.0.0")
+app = FastAPI(title="Unified Microgrid Management API", version="2.0.0")
 
 # Enable CORS for local dashboard
 app.add_middleware(
@@ -66,6 +66,7 @@ class EnvironmentUpdateRequest(BaseModel):
     wind_speed: Optional[float] = None
     wind_direction: Optional[float] = None
     solar_radiation: Optional[float] = None
+    cloud_cover: Optional[float] = None
 
 class DieselSetpointRequest(BaseModel):
     setpoint_kw: float
@@ -74,10 +75,10 @@ class DieselSetpointRequest(BaseModel):
 environment = get_environment_instance()
 microgrid = get_microgrid_instance()
 
-
 def _env_state():
+    """Get current environment state"""
     return {
-        "time": environment.current_time.strftime("%Y-%m-%d %H:%M"),
+        "time": environment.current_time.strftime("%d %B %Y %H:%M"),
         "timestamp": environment.current_time.isoformat(),
         "temperature": getattr(environment, "temperature", None),
         "solar_radiation": getattr(environment, "solar_radiation", None),
@@ -87,12 +88,14 @@ def _env_state():
     }
 
 def _set_if_exists(obj, attr, value):
+    """Set attribute if it exists and value is not None"""
     if hasattr(obj, attr) and value is not None:
         setattr(obj, attr, value)
 
+# === MAIN DASHBOARD ENDPOINT ===
 @app.get("/")
-def get_microgrid_state():
-    """Get current state of the microgrid system"""
+def get_system_status():
+    """Get complete system status including environment and power systems"""
     device_states = []
     for device in microgrid.devices:
         device_info = {
@@ -145,13 +148,7 @@ def get_microgrid_state():
 
     return {
         "timestamp": environment.current_time.isoformat(),
-        "environment": {
-            "temperature": environment.temperature,
-            "wind_speed": environment.wind_speed,
-            "wind_direction": environment.wind_direction,
-            "solar_radiation": environment.solar_radiation,
-            "cloud_cover": getattr(environment, "cloud_cover", None)
-        },
+        "environment": _env_state(),
         "devices": device_states,
         "batteries": [
             {
@@ -179,9 +176,92 @@ def get_microgrid_state():
         "device_count": len(microgrid.devices)
     }
 
+# === ENVIRONMENT ENDPOINTS ===
+@app.get("/environment")
+def get_environment():
+    """Get current environment state"""
+    return _env_state()
 
-# === DEVICE MANAGEMENT ===
+@app.post("/environment/update")
+def update_environment(req: EnvironmentUpdateRequest):
+    """Update multiple environment parameters at once"""
+    _set_if_exists(environment, "temperature", req.temperature)
+    _set_if_exists(environment, "wind_speed", req.wind_speed)
+    _set_if_exists(environment, "wind_direction", req.wind_direction)
+    _set_if_exists(environment, "solar_radiation", req.solar_radiation)
+    _set_if_exists(environment, "cloud_cover", req.cloud_cover)
+    return {
+        "message": "Environment updated",
+        "environment": _env_state()
+    }
 
+@app.post("/environment/temperature")
+def set_temperature(temperature: float = Query(..., ge=-50, le=60)):
+    """Set environment temperature"""
+    try:
+        environment.set_temperature(temperature)
+        return {"message": f"Temperature set to {temperature}°C", "environment": _env_state()}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/environment/solar_radiation")
+def set_solar_radiation(solar_radiation: float = Query(..., ge=0, le=1400)):
+    """Set solar radiation level"""
+    try:
+        environment.set_solar_radiation(solar_radiation)
+        return {"message": f"Solar radiation set to {solar_radiation} W/m²", "environment": _env_state()}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/environment/wind_speed")
+def set_wind_speed(wind_speed: float = Query(..., ge=0, le=100)):
+    """Set wind speed"""
+    try:
+        environment.set_wind_speed(wind_speed)
+        return {"message": f"Wind speed set to {wind_speed} m/s", "environment": _env_state()}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/environment/wind_direction")
+def set_wind_direction(wind_direction: float = Query(..., ge=0, lt=360)):
+    """Set wind direction"""
+    try:
+        environment.set_wind_direction(wind_direction)
+        return {"message": f"Wind direction set to {wind_direction}°", "environment": _env_state()}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/environment/cloud_cover")
+def set_cloud_cover(cloud_cover: float = Query(..., ge=0, le=9)):
+    """Set cloud cover level"""
+    try:
+        environment.set_cloud_cover(cloud_cover)
+        return {"message": f"Cloud cover set to {cloud_cover}/9", "environment": _env_state()}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/step")
+def step_environment(timestep_hours: float = Query(1.0, gt=0, le=24)):
+    """Step the environment simulation forward"""
+    try:
+        environment.step(timestep_hours)
+        return {"message": f"Environment stepped by {timestep_hours} hours", "environment": _env_state()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Environment step error: {str(e)}")
+
+@app.post("/reset")
+def reset_environment():
+    """Reset the environment to initial state"""
+    try:
+        # Reset environment to initial values
+        environment.current_time = datetime.now()
+        environment.set_environment_values()
+        
+        return {"message": "Environment reset to initial state", "environment": _env_state()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Environment reset error: {str(e)}")
+
+# === DEVICE MANAGEMENT ENDPOINTS ===
 @app.post("/add/windturbine")
 def add_wind_turbine(turbine: WindTurbineRequest):
     """Add a wind turbine to the microgrid"""
@@ -355,11 +435,10 @@ def remove_device(device_name: str):
         "remaining_devices": len(microgrid.devices)
     }
 
-# === SIMULATION CONTROL ===
-
+# === SIMULATION ENDPOINTS ===
 @app.post("/simulate/step")
 def simulate_step(request: SimulationStepRequest):
-    """Run one simulation step"""
+    """Run one simulation step with specified demand"""
     try:
         results = microgrid.step(
             demand_kw=request.demand_kw,
@@ -368,42 +447,30 @@ def simulate_step(request: SimulationStepRequest):
 
         return {
             "simulation_results": results,
-            "environment_state": {
-                "temperature": environment.temperature,
-                "wind_speed": environment.wind_speed,
-                "wind_direction": environment.wind_direction,
-                "solar_radiation": environment.solar_radiation,
-                "current_time": environment.current_time.isoformat()
-            }
+            "environment_state": _env_state()
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Simulation error: {str(e)}")
 
 @app.post("/simulate/realistic")
-def simulate_realistic_step(total_daily_kwh: float = 15.0, timestep_hours: float = 1.0):
-    """Run simulation step with realistic demand"""
+def simulate_realistic_step(total_daily_kwh: float = Query(default=150.0), timestep_hours: float = Query(default=1.0)):
+    """Run simulation step with realistic demand calculation"""
     try:
         demand = get_realistic_demand(environment.current_time, total_daily_kwh)
         results = microgrid.step(demand_kw=demand, timestep_hours=timestep_hours)
 
+        # Step the environment forward as well
         environment.step(timestep_hours)
 
         return {
             "simulation_results": results,
             "calculated_demand": demand,
-            "environment_state": {
-                "temperature": environment.temperature,
-                "wind_speed": environment.wind_speed,
-                "wind_direction": environment.wind_direction,
-                "solar_radiation": environment.solar_radiation,
-                "current_time": environment.current_time.isoformat()
-            }
+            "environment_state": _env_state()
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Simulation error: {str(e)}")
 
 # === DIESEL GENERATOR CONTROL ===
-
 @app.get("/diesel/status")
 def get_diesel_status():
     """Get status of all diesel generators"""
@@ -440,7 +507,7 @@ def get_diesel_status():
     }
 
 @app.post("/diesel/strategy")
-def set_diesel_strategy(strategy: str):
+def set_diesel_strategy(strategy: str = Query(...)):
     """Set diesel control strategy"""
     try:
         microgrid.set_diesel_strategy(strategy)
@@ -491,75 +558,7 @@ def get_diesel_strategies():
         }
     }
 
-# === ENVIRONMENT CONTROL ===
-@app.get("/environment")
-def get_environment():
-    return _env_state()
-
-@app.post("/environment/update")
-def update_environment(req: EnvironmentUpdateRequest):
-    _set_if_exists(environment, "temperature", req.temperature)
-    _set_if_exists(environment, "wind_speed", req.wind_speed)
-    _set_if_exists(environment, "wind_direction", req.wind_direction)
-    _set_if_exists(environment, "solar_radiation", req.solar_radiation)
-    return {
-        "message": "Environment updated",
-        "environment": _env_state()
-    }
-
-@app.post("/environment/temperature")
-def set_temperature(temperature: float = Query(..., ge=-50, le=60)):
-    _set_if_exists(environment, "temperature", temperature)
-    return {"message": f"Temperature set to {temperature}°C", "environment": _env_state()}
-
-@app.post("/environment/solar_radiation")
-def set_solar_radiation(solar_radiation: float = Query(..., ge=0, le=1400)):
-    _set_if_exists(environment, "solar_radiation", solar_radiation)
-    return {"message": f"Solar radiation set to {solar_radiation} W/m²", "environment": _env_state()}
-
-@app.post("/environment/wind_speed")
-def set_wind_speed(wind_speed: float = Query(..., ge=0, le=100)):
-    _set_if_exists(environment, "wind_speed", wind_speed)
-    return {"message": f"Wind speed set to {wind_speed} m/s", "environment": _env_state()}
-
-@app.post("/environment/wind_direction")
-def set_wind_direction(wind_direction: float = Query(..., ge=0, lt=360)):
-    _set_if_exists(environment, "wind_direction", wind_direction)
-    return {"message": f"Wind direction set to {wind_direction}°", "environment": _env_state()}
-
-# Optional cloud cover endpoint if your Environment has cloud_cover
-@app.post("/environment/cloud_cover")
-def set_cloud_cover(cloud_cover: float = Query(..., ge=0, le=9)):
-    _set_if_exists(environment, "cloud_cover", cloud_cover)
-    return {"message": f"Cloud cover set to {cloud_cover}/9", "environment": _env_state()}
-
-@app.post("/step")
-def step_environment(timestep_hours: float = Query(1.0, gt=0, le=24)):
-    try:
-        environment.step(timestep_hours)
-        return {"message": f"Environment stepped by {timestep_hours} h", "environment": _env_state()}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Environment step error: {str(e)}")
-
-@app.post("/reset")
-def reset_environment():
-    try:
-        if hasattr(environment, "reset") and callable(environment.reset):
-            environment.reset()
-        else:
-            # Best-effort reset if reset() is not implemented
-            _set_if_exists(environment, "temperature", 20.0)
-            _set_if_exists(environment, "wind_speed", 5.0)
-            _set_if_exists(environment, "wind_direction", 180.0)
-            _set_if_exists(environment, "solar_radiation", 500.0)
-            _set_if_exists(environment, "cloud_cover", 4.5)
-            _set_if_exists(environment, "current_time", datetime.now())
-        return {"message": "Environment reset", "environment": _env_state()}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Environment reset error: {str(e)}")
-
-# === BATTERY & GRID ===
-
+# === BATTERY & GRID STATUS ===
 @app.get("/batteries/status")
 def get_batteries_status():
     """Get status of all batteries"""
@@ -584,15 +583,13 @@ def get_batteries_status():
         "total_energy_kwh": sum(bat.get_state_of_charge() for bat in batteries),
         "total_power_kw": sum(bat.get_power_output() for bat in batteries)
     }
+
 @app.get("/grids/status")
 def get_grids_status():
     """Get status of all grid connections"""
     grids = [d for d in microgrid.devices if isinstance(d, GridConnection)]
 
     grid_statuses = []
-    total_import_cost = 0.0
-    total_export_revenue = 0.0
-
     for grid in grids:
         current_power = grid.get_power_output()
         status = "importing" if current_power > 0 else "exporting" if current_power < 0 else "idle"
@@ -611,7 +608,7 @@ def get_grids_status():
         "total_power_flow": sum(grid.get_power_output() for grid in grids)
     }
 
-
+# === UTILITY ENDPOINTS ===
 @app.get("/devices")
 def list_devices():
     """List all devices"""
@@ -632,16 +629,21 @@ def list_devices():
 
 @app.get("/health")
 def health_check():
-    """Health check"""
+    """Health check endpoint"""
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "devices_count": len(microgrid.devices),
-        "environment_time": environment.current_time.isoformat()
+        "environment_time": environment.current_time.isoformat(),
+        "api_version": "2.0.0"
     }
+
 def run():
+    """Run the unified API server"""
     import uvicorn
+    print("Starting Unified Microgrid Management API on http://localhost:8000")
+    print("API Documentation available at: http://localhost:8000/docs")
     uvicorn.run(app, host="0.0.0.0", port=8000)
-    
+
 if __name__ == "__main__":
     run()
