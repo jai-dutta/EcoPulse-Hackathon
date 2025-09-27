@@ -217,6 +217,7 @@ export default function MicrogridDashboard() {
 =======
             <TabsList className="grid w-full grid-cols-4">
 >>>>>>> Stashed changes
+            <TabsList className="grid w-full grid-cols-4">
 =======
             <TabsList className="grid w-full grid-cols-4">
 >>>>>>> Stashed changes
