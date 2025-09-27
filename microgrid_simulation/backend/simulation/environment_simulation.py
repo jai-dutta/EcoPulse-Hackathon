@@ -17,7 +17,6 @@ class Environment:
     def set_environment_values(self):
         self.cloud_cover: float = self.get_cloud_cover()
         self.wind_speed, self.wind_direction = self.get_wind()
-        # CHANGED: Solar radiation calculation now depends on temperature as well for the panel model
         self.temperature: float = self.get_temperature()
         self.solar_radiation: float = self.get_solar_radiation()
 

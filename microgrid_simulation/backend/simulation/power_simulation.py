@@ -47,7 +47,6 @@ class WindTurbine(PowerDevice):
             angle_diff = 360 - angle_diff
         alignment_factor = max(0, math.cos(math.radians(angle_diff)))
         
-        # CHANGED: Switched to a realistic power curve model
         power = 0.0
         if self.cut_in_speed <= wind_speed < self.rated_speed:
             # Power is proportional to velocity cubed in this range
