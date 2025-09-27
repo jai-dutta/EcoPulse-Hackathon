@@ -73,6 +73,11 @@ export function SystemOverview({ systemStatus }: SystemOverviewProps) {
   const renewableRatio =
     systemStatus.total_generation > 0 ? (totalRenewablePower / systemStatus.total_generation) * 100 : 0
 
+  const timeFormatter = (timestamp: number) => {
+    const date = new Date(timestamp)
+    return date.toLocaleString('default', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  }
+    
   return (
     <div className="space-y-6">
       {/* Trend Charts */}
@@ -91,10 +96,10 @@ export function SystemOverview({ systemStatus }: SystemOverviewProps) {
                   <LineChart data={historicalData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                     <XAxis
-                      dataKey="timestepHours"
+                      dataKey="timestamp"
                       stroke="#9ca3af"
                       fontSize={12}
-                      tickFormatter={(value) => `${value.toFixed(1)}h`}
+                      tickFormatter={timeFormatter}
                       domain={["dataMin", "dataMax"]}
                     />
                     <YAxis stroke="#9ca3af" fontSize={12} />
@@ -104,7 +109,7 @@ export function SystemOverview({ systemStatus }: SystemOverviewProps) {
                         border: "1px solid #374151",
                         borderRadius: "8px",
                       }}
-                      labelFormatter={(value) => `Time: ${value.toFixed(1)} hours`}
+                      labelFormatter={(value) => `Time: ${timeFormatter(value)}`}
                       formatter={(value: any, name: string) => [`${Number(value).toFixed(1)} kW`, name]}
                     />
                     <Line
@@ -150,10 +155,10 @@ export function SystemOverview({ systemStatus }: SystemOverviewProps) {
                   <AreaChart data={historicalData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                     <XAxis
-                      dataKey="timestepHours"
+                      dataKey="timestamp"
                       stroke="#9ca3af"
                       fontSize={12}
-                      tickFormatter={(value) => `${value.toFixed(1)}h`}
+                      tickFormatter={timeFormatter}
                       domain={["dataMin", "dataMax"]}
                     />
                     <YAxis stroke="#9ca3af" fontSize={12} />
@@ -163,7 +168,7 @@ export function SystemOverview({ systemStatus }: SystemOverviewProps) {
                         border: "1px solid #374151",
                         borderRadius: "8px",
                       }}
-                      labelFormatter={(value) => `Time: ${value.toFixed(1)} hours`}
+                      labelFormatter={(value) => `Time: ${timeFormatter(value)}`}
                       formatter={(value: any, name: string) => [
                         `${Number(value).toFixed(1)}${name.includes("%") ? "%" : " kW"}`,
                         name,

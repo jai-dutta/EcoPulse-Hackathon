@@ -6,9 +6,7 @@ interface SimulationContextType {
   isAutoRunning: boolean
   autoStepCount: number
   autoInterval: number
-  useRealisticDemand: boolean
   setAutoInterval: (v: number) => void
-  setUseRealisticDemand: (v: boolean) => void
   toggleAutoStep: () => void
   resetAutoStep: () => void
   runStep: (isAutoStep?: boolean) => Promise<void>
@@ -30,7 +28,6 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
   const [isAutoRunning, setIsAutoRunning] = useState(false)
   const [autoStepCount, setAutoStepCount] = useState(0)
   const [autoInterval, setAutoInterval] = useState(5)
-  const [useRealisticDemand, setUseRealisticDemand] = useState(false)
   const [simulationResults, setSimulationResults] = useState<any>(null)
   const [demandKw, setDemandKw] = useState(100)
   const [totalDailyKwh, setTotalDailyKwh] = useState(150)
@@ -39,11 +36,11 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
-  const latestSettingsRef = useRef({ useRealisticDemand, totalDailyKwh, timestepHours })
+  const latestSettingsRef = useRef({ totalDailyKwh, timestepHours })
 
   useEffect(() => {
-    latestSettingsRef.current = { useRealisticDemand, totalDailyKwh, timestepHours }
-  }, [useRealisticDemand, totalDailyKwh, timestepHours])
+    latestSettingsRef.current = { totalDailyKwh, timestepHours }
+  }, [totalDailyKwh, timestepHours])
 
   const runStep = async (isAutoStep = false) => {
     try {
@@ -105,9 +102,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         isAutoRunning,
         autoStepCount,
         autoInterval,
-        useRealisticDemand,
         setAutoInterval,
-        setUseRealisticDemand,
         toggleAutoStep,
         resetAutoStep,
         runStep,

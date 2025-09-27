@@ -8,7 +8,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Activity, Battery, Sun, Zap, Settings, Play, RefreshCw, AlertTriangle, BarChart3 } from "lucide-react"
 import { SystemOverview } from "@/components/system-overview"
 import { DeviceManagement } from "@/components/device-management"
-import { EnvironmentControls } from "@/components/environment-controls"
 import { SimulationControls } from "@/components/simulation-controls"
 import { RealTimeMonitoring } from "@/components/real-time-monitoring"
 import { SimulationAnalysis } from "@/components/simulation-analysis"
@@ -212,7 +211,11 @@ export default function MicrogridDashboard() {
           )}
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+<<<<<<< Updated upstream
             <TabsList className="grid w-full grid-cols-6">
+=======
+            <TabsList className="grid w-full grid-cols-4">
+>>>>>>> Stashed changes
               <TabsTrigger value="overview" className="gap-2">
                 <Activity className="h-4 w-4" />
                 Overview
@@ -220,10 +223,6 @@ export default function MicrogridDashboard() {
               <TabsTrigger value="devices" className="gap-2">
                 <Settings className="h-4 w-4" />
                 Devices
-              </TabsTrigger>
-              <TabsTrigger value="environment" className="gap-2">
-                <Sun className="h-4 w-4" />
-                Environment
               </TabsTrigger>
               <TabsTrigger value="simulation" className="gap-2">
                 <Play className="h-4 w-4" />
@@ -245,10 +244,6 @@ export default function MicrogridDashboard() {
 
             <TabsContent value="devices" className="space-y-6">
               <DeviceManagement systemStatus={systemStatus} onUpdate={fetchSystemStatus} />
-            </TabsContent>
-
-            <TabsContent value="environment" className="space-y-6">
-              <EnvironmentControls environment={systemStatus?.environment} onUpdate={fetchSystemStatus} />
             </TabsContent>
 
             <TabsContent value="simulation" className="space-y-6">
