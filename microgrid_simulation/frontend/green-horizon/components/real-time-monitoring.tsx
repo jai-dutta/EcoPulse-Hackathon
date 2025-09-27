@@ -46,11 +46,18 @@ interface RealTimeMonitoringProps {
   systemStatus: any
 }
 
+interface Stats {
+  co2_emissions_saved_kg: number;
+  net_grid_profit_cost: number;
+  net_diesel_usage_litres: number;
+}
+
 export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
   const { historicalData } = useMonitoring()
   const [batteryStatus, setBatteryStatus] = useState<any[]>([])
   const [dieselStatus, setDieselStatus] = useState<any>(null)
   const [gridStatus, setGridStatus] = useState<any[]>([])
+  const [stats, setStats] = useState<Stats | null>(null);
 
   useEffect(() => {
     const fetchMonitoringData = async () => {
@@ -76,6 +83,13 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
         if (gridResponse.ok) {
           const gridData = await gridResponse.json()
           setGridStatus(gridData.grid_connections)
+        }
+        
+        // Fetch stats
+        const statsResponse = await fetch("http://localhost:8000/stats");
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json();
+          setStats(statsData);
         }
       } catch (error) {
         console.error("Failed to fetch monitoring data:", error)
@@ -126,6 +140,34 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
           </Badge>
         </div>
       </div>
+      
+      {stats && (
+        <Card>
+          <CardHeader>
+            <CardTitle>24-Hour Performance Stats</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-3">
+            <div className="p-4 rounded-lg bg-muted/50">
+              <p className="text-sm text-muted-foreground mb-2">CO2 Emissions Saved</p>
+              <div className="text-2xl font-bold text-accent">
+                {stats.co2_emissions_saved_kg.toFixed(2)} kg
+              </div>
+            </div>
+            <div className="p-4 rounded-lg bg-muted/50">
+              <p className="text-sm text-muted-foreground mb-2">Net Grid Profit/Cost</p>
+              <div className={`text-2xl font-bold ${stats.net_grid_profit_cost >= 0 ? 'text-destructive' : 'text-accent'}`}>
+                ${Math.abs(stats.net_grid_profit_cost).toFixed(2)}
+              </div>
+            </div>
+            <div className="p-4 rounded-lg bg-muted/50">
+              <p className="text-sm text-muted-foreground mb-2">Net Diesel Usage</p>
+              <div className="text-2xl font-bold text-chart-4">
+                {stats.net_diesel_usage_litres.toFixed(2)} L
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>

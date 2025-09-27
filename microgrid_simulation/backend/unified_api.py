@@ -1,13 +1,12 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from pydantic import BaseModel
+from typing import Optional
 from datetime import datetime
-import copy
-
 from simulation_instances import (
     get_environment_instance,
     get_microgrid_instance,
+    get_historical_data,
 )
 
 # Import from your actual code structure
@@ -16,7 +15,7 @@ from power_simulation import (
     get_realistic_demand, GridConnection, Battery
 )
 
-app = FastAPI(title="Unified Microgrid Management API", version="2.2.0")
+app = FastAPI(title="Unified Microgrid Management API", version="2.0.0")
 
 # Enable CORS for local dashboard
 app.add_middleware(
@@ -28,7 +27,7 @@ app.add_middleware(
 )
 
 # Pydantic models for request/response
-class WindTurbineParams(BaseModel):
+class WindTurbineRequest(BaseModel):
     name: str
     rated_power: float
     direction: int
@@ -36,36 +35,28 @@ class WindTurbineParams(BaseModel):
     rated_speed: float = 12.0
     cut_out_speed: float = 25.0
 
-class SolarPanelParams(BaseModel):
+class SolarPanelRequest(BaseModel):
     name: str
     rated_power: float
     temp_coefficient: float = 0.004
     stc_temp: float = 25.0
 
-class DieselGeneratorParams(BaseModel):
+class DieselGeneratorRequest(BaseModel):
     name: str
     rated_power: float
     diesel_usage_litre_per_kw: float = 0.4
 
-class BatteryParams(BaseModel):
+class BatteryRequest(BaseModel):
     name: str
     capacity_kwh: float
     max_power_kw: float
     efficiency: float = 0.90
     initial_charge: float = 0.5
 
-class GridConnectionParams(BaseModel):
+class GridConnectionRequest(BaseModel):
     name: str
     import_price: float
     export_price: float
-
-class AddDeviceRequest(BaseModel):
-    type: str
-    params: Dict[str, Any]
-
-class AnalysisRequest(BaseModel):
-    exclude_device_name: str
-    duration_days: int = 1
 
 class SimulationStepRequest(BaseModel):
     demand_kw: float
@@ -192,21 +183,6 @@ def get_environment():
     """Get current environment state"""
     return _env_state()
 
-@app.post("/environment/update")
-def update_environment(req: EnvironmentUpdateRequest):
-    """Update multiple environment parameters at once"""
-    _set_if_exists(environment, "temperature", req.temperature)
-    _set_if_exists(environment, "wind_speed", req.wind_speed)
-    _set_if_exists(environment, "wind_direction", req.wind_direction)
-    _set_if_exists(environment, "solar_radiation", req.solar_radiation)
-    _set_if_exists(environment, "cloud_cover", req.cloud_cover)
-    return {
-        "message": "Environment updated",
-        "environment": _env_state()
-    }
-
-# ... (Individual environment set endpoints remain the same) ...
-
 @app.post("/step")
 def step_environment(timestep_hours: float = Query(1.0, gt=0, le=24)):
     """Step the environment simulation forward"""
@@ -229,61 +205,180 @@ def reset_environment():
         raise HTTPException(status_code=500, detail=f"Environment reset error: {str(e)}")
 
 # === DEVICE MANAGEMENT ENDPOINTS ===
-DEVICE_TYPE_MAP = {
-    "windturbine": (WindTurbine, WindTurbineParams),
-    "solarpanel": (SolarPanel, SolarPanelParams),
-    "dieselgenerator": (DieselGenerator, DieselGeneratorParams),
-    "battery": (Battery, BatteryParams),
-    "gridconnection": (GridConnection, GridConnectionParams),
-}
-
-@app.post("/device")
-def add_device(request: AddDeviceRequest):
-    """Add any type of device to the microgrid."""
-    device_type_key = request.type.lower()
-    
-    if device_type_key not in DEVICE_TYPE_MAP:
-        raise HTTPException(status_code=400, detail=f"Invalid device type: {request.type}. Valid types are: {list(DEVICE_TYPE_MAP.keys())}")
-
-    DeviceClass, PydanticModel = DEVICE_TYPE_MAP[device_type_key]
-
+@app.post("/add/windturbine")
+def add_wind_turbine(turbine: WindTurbineRequest):
+    """Add a wind turbine to the microgrid"""
     try:
-        validated_params = PydanticModel(**request.params)
-        
-        if any(d.name == validated_params.name for d in microgrid.devices):
-            raise HTTPException(status_code=400, detail=f"Device '{validated_params.name}' already exists")
+        if any(d.name == turbine.name for d in microgrid.devices):
+            raise HTTPException(status_code=400, detail=f"Device '{turbine.name}' already exists")
 
-        new_device = DeviceClass(**validated_params.dict())
-        microgrid.devices.append(new_device)
-        
+        if not (0 <= turbine.direction <= 360):
+            raise HTTPException(status_code=400, detail="Direction must be 0-360 degrees")
+
+        wind_turbine = WindTurbine(
+            name=turbine.name,
+            rated_power=turbine.rated_power,
+            direction=turbine.direction,
+            cut_in_speed=turbine.cut_in_speed,
+            rated_speed=turbine.rated_speed,
+            cut_out_speed=turbine.cut_out_speed
+        )
+
+        microgrid.devices.append(wind_turbine)
+
         return {
-            "message": f"{DeviceClass.__name__} '{validated_params.name}' added successfully.",
-            "device": validated_params.dict()
+            "message": f"Wind turbine '{turbine.name}' added successfully",
+            "device": {
+                "name": wind_turbine.name,
+                "rated_power": wind_turbine.rated_power,
+                "direction": wind_turbine.direction
+            }
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/device/{device_name}")
+@app.post("/add/solarpanel")
+def add_solar_panel(panel: SolarPanelRequest):
+    """Add a solar panel to the microgrid"""
+    try:
+        if any(d.name == panel.name for d in microgrid.devices):
+            raise HTTPException(status_code=400, detail=f"Device '{panel.name}' already exists")
+
+        solar_panel = SolarPanel(
+            name=panel.name,
+            rated_power=panel.rated_power,
+            temp_coefficient=panel.temp_coefficient,
+            stc_temp=panel.stc_temp
+        )
+
+        microgrid.devices.append(solar_panel)
+
+        return {
+            "message": f"Solar panel '{panel.name}' added successfully",
+            "device": {
+                "name": solar_panel.name,
+                "rated_power": solar_panel.rated_power,
+                "temp_coefficient": solar_panel.temp_coefficient
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/add/battery")
+def add_battery(battery: BatteryRequest):
+    """Add a battery to the microgrid"""
+    try:
+        if any(d.name == battery.name for d in microgrid.devices):
+            raise HTTPException(status_code=400, detail=f"Device '{battery.name}' already exists")
+
+        if battery.capacity_kwh <= 0:
+            raise HTTPException(status_code=400, detail="Capacity must be positive")
+        if battery.max_power_kw <= 0:
+            raise HTTPException(status_code=400, detail="Max power must be positive")
+        if not (0 < battery.efficiency <= 1):
+            raise HTTPException(status_code=400, detail="Efficiency must be between 0 and 1")
+        if not (0 <= battery.initial_charge <= 1):
+            raise HTTPException(status_code=400, detail="Initial charge must be between 0 and 1")
+
+        new_battery = Battery(
+            name=battery.name,
+            capacity_kwh=battery.capacity_kwh,
+            max_power_kw=battery.max_power_kw,
+            efficiency=battery.efficiency,
+            initial_charge=battery.initial_charge
+        )
+
+        microgrid.devices.append(new_battery)
+
+        return {
+            "message": f"Battery '{battery.name}' added successfully",
+            "battery": {
+                "name": new_battery.name,
+                "capacity_kwh": new_battery.capacity_kwh,
+                "max_power_kw": new_battery.max_power_kw,
+                "efficiency": new_battery.one_way_efficiency ** 2
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/add/gridconnection")
+def add_grid_connection(grid: GridConnectionRequest):
+    """Add a grid connection to the microgrid"""
+    try:
+        if any(d.name == grid.name for d in microgrid.devices):
+            raise HTTPException(status_code=400, detail=f"Device '{grid.name}' already exists")
+
+        if grid.import_price < 0:
+            raise HTTPException(status_code=400, detail="Import price must be non-negative")
+        if grid.export_price < 0:
+            raise HTTPException(status_code=400, detail="Export price must be non-negative")
+
+        new_grid = GridConnection(
+            name=grid.name,
+            import_price=grid.import_price,
+            export_price=grid.export_price
+        )
+
+        microgrid.devices.append(new_grid)
+
+        return {
+            "message": f"Grid connection '{grid.name}' added successfully",
+            "grid": {
+                "name": new_grid.name,
+                "import_price": new_grid.import_price,
+                "export_price": new_grid.export_price
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/add/dieselgenerator")
+def add_diesel_generator(generator: DieselGeneratorRequest):
+    """Add a diesel generator to the microgrid"""
+    try:
+        if any(d.name == generator.name for d in microgrid.devices):
+            raise HTTPException(status_code=400, detail=f"Device '{generator.name}' already exists")
+
+        diesel_gen = DieselGenerator(
+            name=generator.name,
+            rated_power=generator.rated_power,
+            diesel_usage_litre_per_kw=generator.diesel_usage_litre_per_kw
+        )
+
+        microgrid.devices.append(diesel_gen)
+
+        return {
+            "message": f"Diesel generator '{generator.name}' added successfully",
+            "device": {
+                "name": diesel_gen.name,
+                "rated_power": diesel_gen.rated_power,
+                "diesel_usage_litre_per_kw": diesel_gen.diesel_usage_litre_per_kw
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.delete("/remove/{device_name}")
 def remove_device(device_name: str):
-    """Remove a device from the microgrid by name."""
-    device_to_remove = next((d for d in microgrid.devices if d.name == device_name), None)
+    """Remove a device from the microgrid"""
+    device_to_remove = None
+    for device in microgrid.devices:
+        if device.name == device_name:
+            device_to_remove = device
+            break
 
     if device_to_remove is None:
         raise HTTPException(status_code=404, detail=f"Device '{device_name}' not found")
 
     microgrid.devices.remove(device_to_remove)
-    
-    if isinstance(device_to_remove, DieselGenerator) and device_name in microgrid.diesel_setpoints:
-        del microgrid.diesel_setpoints[device_name]
 
     return {
         "message": f"Device '{device_name}' removed successfully",
         "remaining_devices": len(microgrid.devices)
     }
 
-# === SIMULATION & ANALYSIS ===
+# === SIMULATION ENDPOINTS ===
 @app.post("/simulate/step")
 def simulate_step(request: SimulationStepRequest):
     """Run one simulation step with specified demand"""
@@ -292,7 +387,11 @@ def simulate_step(request: SimulationStepRequest):
             demand_kw=request.demand_kw,
             timestep_hours=request.timestep_hours
         )
-        return { "simulation_results": results, "environment_state": _env_state() }
+
+        return {
+            "simulation_results": results,
+            "environment_state": _env_state()
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Simulation error: {str(e)}")
 
@@ -302,7 +401,14 @@ def simulate_realistic_step(total_daily_kwh: float = Query(default=150.0), times
     try:
         demand = get_realistic_demand(environment.current_time, total_daily_kwh)
         results = microgrid.step(demand_kw=demand, timestep_hours=timestep_hours)
+
+        # Step the environment forward as well
         environment.step(timestep_hours)
+        
+        # Store historical data
+        historical_data = get_historical_data()
+        historical_data.append(results)
+
         return {
             "simulation_results": results,
             "calculated_demand": demand,
@@ -310,84 +416,6 @@ def simulate_realistic_step(total_daily_kwh: float = Query(default=150.0), times
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Simulation error: {str(e)}")
-
-# === SIMULATION & ANALYSIS ===
-def run_simulation_for_duration(sim_microgrid, sim_environment, duration_days: int):
-    """Helper to run a simulation for a given duration and return metrics."""
-    total_diesel_usage_l, total_grid_import_kwh, total_cost, total_renewable_gen = 0, 0, 0, 0
-    
-    CO2_KG_PER_LITRE_DIESEL = 2.68
-    CO2_KG_PER_KWH_GRID = 0.43
-    DIESEL_PRICE_PER_LITRE = 1.20
-
-    grid_connections = [d for d in sim_microgrid.devices if isinstance(d, GridConnection)]
-    import_price = grid_connections[0].import_price if grid_connections else 0.15
-    export_price = grid_connections[0].export_price if grid_connections else 0.05
-
-    for _ in range(duration_days * 24):
-        demand_kw = get_realistic_demand(sim_environment.current_time, total_daily_kwh=1500)
-        results = sim_microgrid.step(demand_kw=demand_kw, timestep_hours=1.0)
-        sim_environment.step(1.0)
-        
-        total_diesel_usage_l += results.get("diesel_usage_lph", 0)
-        grid_power = results.get("grid_power_kw", 0)
-        
-        cost_for_step = (results.get("diesel_usage_lph", 0) * DIESEL_PRICE_PER_LITRE)
-        if grid_power > 0:
-            total_grid_import_kwh += grid_power
-            cost_for_step += grid_power * import_price
-        else:
-            cost_for_step -= abs(grid_power) * export_price
-        total_cost += cost_for_step
-
-        total_renewable_gen += results.get("renewable_generation_kw", 0)
-
-    co2_emissions = (total_diesel_usage_l * CO2_KG_PER_LITRE_DIESEL) + (total_grid_import_kwh * CO2_KG_PER_KWH_GRID)
-    
-    return {
-        "total_cost": total_cost,
-        "co2_emissions_kg": co2_emissions,
-        "diesel_usage_l": total_diesel_usage_l,
-        "grid_import_kwh": total_grid_import_kwh,
-        "renewable_generation_kwh": total_renewable_gen
-    }
-
-@app.post("/analyze/scenario")
-def analyze_scenario(request: AnalysisRequest):
-    """Runs a twin simulation: one with renewables, one without (baseline)."""
-    
-    # --- Scenario 1: Current system with renewables ---
-    microgrid_with_renewables = copy.deepcopy(microgrid)
-    env_with_renewables = copy.deepcopy(environment)
-    results_with_renewables = run_simulation_for_duration(microgrid_with_renewables, env_with_renewables, request.duration_days)
-
-    # --- Scenario 2: Baseline system without any renewables ---
-    microgrid_without_renewables = copy.deepcopy(microgrid)
-    env_without_renewables = copy.deepcopy(environment)
-    
-    microgrid_without_renewables.devices = [
-        d for d in microgrid_without_renewables.devices 
-        if not isinstance(d, (WindTurbine, SolarPanel))
-    ]
-        
-    results_without_renewables = run_simulation_for_duration(microgrid_without_renewables, env_without_renewables, request.duration_days)
-    
-    cost_saved = results_without_renewables["total_cost"] - results_with_renewables["total_cost"]
-    co2_saved_kg = results_without_renewables["co2_emissions_kg"] - results_with_renewables["co2_emissions_kg"]
-    
-    cost_saving_percent = (cost_saved / results_without_renewables["total_cost"]) * 100 if results_without_renewables.get("total_cost") != 0 else 0
-    co2_saving_percent = (co2_saved_kg / results_without_renewables["co2_emissions_kg"]) * 100 if results_without_renewables.get("co2_emissions_kg") != 0 else 0
-
-    return {
-        "with_renewables": results_with_renewables,
-        "without_renewables": results_without_renewables,
-        "savings": {
-            "cost_saved": cost_saved,
-            "co2_saved_kg": co2_saved_kg,
-            "cost_saving_percent": cost_saving_percent,
-            "co2_saving_percent": co2_saving_percent,
-        }
-    }
 
 # === DIESEL GENERATOR CONTROL ===
 @app.get("/diesel/status")
@@ -554,8 +582,37 @@ def health_check():
         "timestamp": datetime.now().isoformat(),
         "devices_count": len(microgrid.devices),
         "environment_time": environment.current_time.isoformat(),
-        "api_version": "2.2.0"
+        "api_version": "2.0.0"
     }
+    
+# CO2 emission factor for Australia's grid (kg CO2-e/kWh)
+# Source: https://www.dcceew.gov.au/climate-change/publications/national-greenhouse-accounts-factors-2023
+CO2_EMISSION_FACTOR = 0.67
+
+@app.get("/stats")
+def get_stats():
+    """Get 24-hour statistics"""
+    historical_data = get_historical_data()
+    
+    if not historical_data:
+        return {
+            "co2_emissions_saved_kg": 0,
+            "net_grid_profit_cost": 0,
+            "net_diesel_usage_litres": 0,
+        }
+
+    total_renewable_generation_24h = sum(d.get("Renewable Generation (kW)", 0) for d in historical_data)
+    net_grid_cost_24h = sum(d.get("Total Grid Cost ($)", 0) for d in historical_data)
+    total_diesel_usage_24h = sum(d.get("Total Diesel Usage (L/h)", 0) for d in historical_data)
+
+    co2_emissions_saved_kg = total_renewable_generation_24h * CO2_EMISSION_FACTOR
+
+    return {
+        "co2_emissions_saved_kg": co2_emissions_saved_kg,
+        "net_grid_profit_cost": net_grid_cost_24h,
+        "net_diesel_usage_litres": total_diesel_usage_24h,
+    }
+
 
 def run():
     """Run the unified API server"""

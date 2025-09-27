@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Activity, Battery, Sun, Zap, Settings, Play, RefreshCw, AlertTriangle, BarChart3 } from "lucide-react"
+import { Activity, Battery, Sun, Zap, Settings, Play, RefreshCw, AlertTriangle } from "lucide-react"
 import { SystemOverview } from "@/components/system-overview"
 import { DeviceManagement } from "@/components/device-management"
+import { EnvironmentControls } from "@/components/environment-controls"
 import { SimulationControls } from "@/components/simulation-controls"
 import { RealTimeMonitoring } from "@/components/real-time-monitoring"
-import { SimulationAnalysis } from "@/components/simulation-analysis"
+
 
 interface SystemStatus {
   timestamp: string
@@ -71,7 +72,7 @@ export default function MicrogridDashboard() {
     const interval = setInterval(() => {
       fetchSystemStatus() // always refresh every 500ms
     }, 500)
-
+  
     return () => clearInterval(interval)
   }, [])
 
@@ -211,23 +212,7 @@ export default function MicrogridDashboard() {
           )}
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-            <TabsList className="grid w-full grid-cols-6">
-=======
-            <TabsList className="grid w-full grid-cols-4">
->>>>>>> Stashed changes
-=======
-            <TabsList className="grid w-full grid-cols-4">
->>>>>>> Stashed changes
-=======
-            <TabsList className="grid w-full grid-cols-4">
->>>>>>> Stashed changes
-=======
-            <TabsList className="grid w-full grid-cols-4">
->>>>>>> Stashed changes
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="overview" className="gap-2">
                 <Activity className="h-4 w-4" />
                 Overview
@@ -236,6 +221,10 @@ export default function MicrogridDashboard() {
                 <Settings className="h-4 w-4" />
                 Devices
               </TabsTrigger>
+              <TabsTrigger value="environment" className="gap-2">
+                <Sun className="h-4 w-4" />
+                Environment
+              </TabsTrigger>
               <TabsTrigger value="simulation" className="gap-2">
                 <Play className="h-4 w-4" />
                 Simulation
@@ -243,10 +232,6 @@ export default function MicrogridDashboard() {
               <TabsTrigger value="monitoring" className="gap-2">
                 <Battery className="h-4 w-4" />
                 Monitoring
-              </TabsTrigger>
-              <TabsTrigger value="analysis" className="gap-2">
-                <BarChart3 className="h-4 w-4" />
-                Analysis
               </TabsTrigger>
             </TabsList>
 
@@ -258,16 +243,16 @@ export default function MicrogridDashboard() {
               <DeviceManagement systemStatus={systemStatus} onUpdate={fetchSystemStatus} />
             </TabsContent>
 
+            <TabsContent value="environment" className="space-y-6">
+              <EnvironmentControls environment={systemStatus?.environment} onUpdate={fetchSystemStatus} />
+            </TabsContent>
+
             <TabsContent value="simulation" className="space-y-6">
               <SimulationControls onUpdate={handleStepUpdate} />
             </TabsContent>
 
             <TabsContent value="monitoring" className="space-y-6">
               <RealTimeMonitoring systemStatus={systemStatus} />
-            </TabsContent>
-
-            <TabsContent value="analysis" className="space-y-6">
-              <SimulationAnalysis systemStatus={systemStatus} />
             </TabsContent>
           </Tabs>
         </main>
