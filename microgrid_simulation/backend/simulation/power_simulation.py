@@ -63,7 +63,6 @@ class WindTurbine(PowerDevice):
         self.power_output = power * alignment_factor
 
 class SolarPanel(PowerDevice):
-    # ADDED: Parameters for temperature effects
     def __init__(self, name: str, rated_power: float, temp_coefficient: float = 0.004, stc_temp: float = 25.0):
         super().__init__(name)
         self.rated_power = rated_power
@@ -78,7 +77,6 @@ class SolarPanel(PowerDevice):
         # Base power from radiation
         base_power = self.rated_power * (radiation / max_radiation)
         
-        # ADDED: Temperature derating factor
         # For every degree above 25°C, the panel loses efficiency
         temp_derating = 1.0 - (temperature - self.stc_temp) * self.temp_coefficient
         
