@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,11 +9,31 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Plus, Trash2, Wind, Sun, Battery, Fuel, Zap } from "lucide-react"
+import { useSimulation } from "@/app/context/SimulationContext"
+import { SimulationControls } from "./simulation-controls"
 
+export function DeviceManagementWrapper() {
+  const { refresh } = useSimulation()
+
+  useEffect(() => {
+    // Refresh immediately on mount
+    refresh()
+    // Set up interval (e.g., every 2 seconds)
+    const interval = setInterval(() => {
+      refresh()
+    }, 1000)
+
+    // Clean up on unmount
+    return () => clearInterval(interval)
+  }, [refresh])
+
+  return <SimulationControls onUpdate={refresh} />
+}
 interface DeviceManagementProps {
   systemStatus: any
   onUpdate: () => void
 }
+
 
 export function DeviceManagement({ systemStatus, onUpdate }: DeviceManagementProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)

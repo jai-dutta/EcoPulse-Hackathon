@@ -12,6 +12,7 @@ import { EnvironmentControls } from "@/components/environment-controls"
 import { SimulationControls } from "@/components/simulation-controls"
 import { RealTimeMonitoring } from "@/components/real-time-monitoring"
 
+
 interface SystemStatus {
   timestamp: string
   environment: {
@@ -66,6 +67,14 @@ export default function MicrogridDashboard() {
   const [connectionError, setConnectionError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState("overview")
   const [historicalData, setHistoricalData] = useState<any[]>([])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchSystemStatus() // always refresh every 500ms
+    }, 500)
+  
+    return () => clearInterval(interval)
+  }, [])
 
   const fetchSystemStatus = async () => {
     try {

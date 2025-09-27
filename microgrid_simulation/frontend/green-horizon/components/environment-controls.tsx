@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect} from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,7 +9,26 @@ import { Slider } from "@/components/ui/slider"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Thermometer, Sun, Wind, Compass, Cloud, Play, RotateCcw, Clock, Settings } from "lucide-react"
+import { useSimulation } from "@/app/context/SimulationContext"
 
+export function DeviceManagementWrapper() {
+  const { refresh } = useSimulation()
+
+  useEffect(() => {
+    // Refresh immediately on mount
+    refresh()
+
+    // Set up interval (e.g., every 2 seconds)
+    const interval = setInterval(() => {
+      refresh()
+    }, 2000)
+
+    // Clean up on unmount
+    return () => clearInterval(interval)
+  }, [refresh])
+
+  return <SimulationControls onUpdate={refresh} />
+}
 interface EnvironmentControlsProps {
   environment: any
   onUpdate: () => void

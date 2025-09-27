@@ -1,11 +1,33 @@
 "use client"
 
+import { useState, useEffect} from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Battery, Sun, Wind, Zap, Fuel, TrendingUp, TrendingDown, Activity, Leaf } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts"
 import { useMonitoring } from "@/app/page"
+import { useSimulation } from "@/app/context/SimulationContext"
+import { SimulationControls } from "./simulation-controls"
+
+export function DeviceManagementWrapper() {
+  const { refresh } = useSimulation()
+
+  useEffect(() => {
+    // Refresh immediately on mount
+    refresh()
+
+    // Set up interval (e.g., every 2 seconds)
+    const interval = setInterval(() => {
+      refresh()
+    }, 2000)
+
+    // Clean up on unmount
+    return () => clearInterval(interval)
+  }, [refresh])
+
+  return <SimulationControls onUpdate={refresh} />
+}
 
 interface SystemOverviewProps {
   systemStatus: any

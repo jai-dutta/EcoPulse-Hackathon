@@ -21,7 +21,26 @@ import {
 } from "recharts"
 import { Battery, Fuel, Sun, Wind, Zap, Activity, TrendingUp, TrendingDown, AlertTriangle, Leaf } from "lucide-react"
 import { useMonitoring } from "@/app/page"
+import { useSimulation } from "@/app/context/SimulationContext"
 
+export function DeviceManagementWrapper() {
+  const { refresh } = useSimulation()
+
+  useEffect(() => {
+    // Refresh immediately on mount
+    refresh()
+
+    // Set up interval (e.g., every 2 seconds)
+    const interval = setInterval(() => {
+      refresh()
+    }, 2000)
+
+    // Clean up on unmount
+    return () => clearInterval(interval)
+  }, [refresh])
+
+  return <RealTimeMonitoring onUpdate={refresh} />
+}
 interface RealTimeMonitoringProps {
   systemStatus: any
 }

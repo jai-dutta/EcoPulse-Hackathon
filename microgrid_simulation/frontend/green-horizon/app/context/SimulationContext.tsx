@@ -7,18 +7,21 @@ interface SimulationContextType {
   autoStepCount: number
   autoInterval: number
   useRealisticDemand: boolean
-  demandKw: number
-  totalDailyKwh: number
-  timestepHours: number
-  simulationResults: any
-  setDemandKw: (v: number) => void
-  setTotalDailyKwh: (v: number) => void
-  setTimestepHours: (v: number) => void
-  setUseRealisticDemand: (v: boolean) => void
   setAutoInterval: (v: number) => void
+  setUseRealisticDemand: (v: boolean) => void
   toggleAutoStep: () => void
   resetAutoStep: () => void
   runStep: (isAutoStep?: boolean) => Promise<void>
+  simulationResults: any
+  demandKw: number
+  setDemandKw: (v: number) => void
+  totalDailyKwh: number
+  timestepHours: number
+  setTotalDailyKwh: (v: number) => void
+  setTimestepHours: (v: number) => void
+  systemStatus: any
+  refresh: () => void
+  refreshTrigger: number
 }
 
 const SimulationContext = createContext<SimulationContextType | undefined>(undefined)
@@ -32,10 +35,19 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
   const [demandKw, setDemandKw] = useState(100)
   const [totalDailyKwh, setTotalDailyKwh] = useState(150)
   const [timestepHours, setTimestepHours] = useState(1)
+  const [systemStatus, setSystemStatus] = useState<any>(null)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const latestSettingsRef = useRef({ useRealisticDemand, totalDailyKwh, timestepHours })
+
+  useEffect(() => {
+    latestSettingsRef.current = { useRealisticDemand, totalDailyKwh, timestepHours }
+  }, [useRealisticDemand, totalDailyKwh, timestepHours])
 
   const runStep = async (isAutoStep = false) => {
     try {
+      const { totalDailyKwh, timestepHours } = latestSettingsRef.current
       const response = await fetch(
         `http://localhost:8000/simulate/realistic?total_daily_kwh=${totalDailyKwh}&timestep_hours=${timestepHours}`,
         { method: "POST" }
@@ -44,7 +56,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         const data = await response.json()
         setSimulationResults(data.simulation_results)
         setDemandKw(data.calculated_demand)
-        if (isAutoStep) setAutoStepCount((prev) => prev + 1)
+        if (isAutoStep) setAutoStepCount(prev => prev + 1)
       }
     } catch (error) {
       console.error("Simulation failed:", error)
@@ -52,8 +64,16 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const refresh = () => {
+    console.log("REFRESHING")
+    fetch("/api/system-status")
+      .then(res => res.json())
+      .then(data => setSystemStatus(data))
+      .finally(() => setRefreshTrigger(prev => prev + 1))
+  }
+
   const toggleAutoStep = () => {
-    setIsAutoRunning((prev) => !prev)
+    setIsAutoRunning(prev => !prev)
     setAutoStepCount(0)
   }
 
@@ -62,9 +82,9 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
     setAutoStepCount(0)
   }
 
-  // Auto-step interval
   useEffect(() => {
     if (isAutoRunning) {
+      if (intervalRef.current) clearInterval(intervalRef.current)
       intervalRef.current = setInterval(() => runStep(true), autoInterval * 1000)
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current)
@@ -77,7 +97,7 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         intervalRef.current = null
       }
     }
-  }, [isAutoRunning, autoInterval, useRealisticDemand, totalDailyKwh, timestepHours])
+  }, [isAutoRunning, autoInterval])
 
   return (
     <SimulationContext.Provider
@@ -86,18 +106,21 @@ export function SimulationProvider({ children }: { children: ReactNode }) {
         autoStepCount,
         autoInterval,
         useRealisticDemand,
-        demandKw,
-        totalDailyKwh,
-        timestepHours,
-        simulationResults,
-        setDemandKw,
-        setTotalDailyKwh,
-        setTimestepHours,
-        setUseRealisticDemand,
         setAutoInterval,
+        setUseRealisticDemand,
         toggleAutoStep,
         resetAutoStep,
         runStep,
+        simulationResults,
+        demandKw,
+        totalDailyKwh,
+        timestepHours,
+        setTotalDailyKwh,
+        setTimestepHours,
+        systemStatus,
+        refresh,
+        setDemandKw,
+        refreshTrigger,
       }}
     >
       {children}
