@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from simulation.environment_simulation import Environment
-from simulation.simulation_instances import get_environment_instance
+from environment_simulation import Environment
+from simulation_instances import get_environment_instance
 app = FastAPI(title="Microgrid Environment API")
 
 # Enable CORS for local dashboard

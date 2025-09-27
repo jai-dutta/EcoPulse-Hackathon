@@ -1,13 +1,11 @@
-from environment_simulation import *
 from power_simulation import *
+from environment_simulation import Environment
 
+# Create global instances
 env = Environment()
 
 devices = []
-grid = GridConnection()
-battery = Battery()
-microgrid = MicrogridManager(
-)
+microgrid = MicrogridManager(env, devices)
 
 def get_environment_instance() -> Environment:
     return env

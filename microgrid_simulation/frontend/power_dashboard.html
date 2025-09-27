@@ -1,0 +1,1617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Green Horizons - Microgrid Management</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #10b981;
+            --primary-dark: #059669;
+            --primary-light: #a7f3d0;
+            --secondary: #64748b;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --dark: #1e293b;
+            --light: #f8fafc;
+            --card-bg: #ffffff;
+            --sidebar-bg: #0f172a;
+            --border: #e2e8f0;
+            --gradient-start: #0f172a;
+            --gradient-end: #1e293b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
+            min-height: 100vh;
+            color: var(--dark);
+            overflow-x: hidden;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background: linear-gradient(180deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
+            color: white;
+            padding: 2rem 1.5rem;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.1);
+            z-index: 100;
+            position: fixed;
+            width: 280px;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 2.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .logo i {
+            font-size: 2rem;
+            color: var(--primary);
+            background: rgba(16, 185, 129, 0.1);
+            padding: 0.5rem;
+            border-radius: 12px;
+        }
+
+        .logo h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, var(--primary) 0%, var(--primary-light) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-section {
+            margin-bottom: 2rem;
+        }
+
+        .nav-title {
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+            margin-bottom: 1rem;
+            padding-left: 1rem;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            border-radius: 0.75rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .nav-item:hover {
+            background: rgba(255,255,255,0.05);
+            border-color: rgba(16, 185, 129, 0.2);
+        }
+
+        .nav-item.active {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.3);
+            color: var(--primary-light);
+        }
+
+        .nav-item i {
+            width: 20px;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+
+        /* Main Content */
+        .main-content {
+            padding: 2rem;
+            margin-left: 280px;
+            overflow-y: auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            background: white;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .header h2 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .header h2 i {
+            color: var(--primary);
+            background: rgba(16, 185, 129, 0.1);
+            padding: 0.5rem;
+            border-radius: 12px;
+        }
+
+        .time-display {
+            background: linear-gradient(90deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 500;
+            box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2);
+        }
+
+        /* Cards Grid */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 1px solid var(--border);
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary) 0%, var(--primary-dark) 100%);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .icon-wind { background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%); color: #2563eb; }
+        .icon-solar { background: linear-gradient(135deg, #fef3c7 0%, #fcd34d 100%); color: #d97706; }
+        .icon-diesel { background: linear-gradient(135deg, #fee2e2 0%, #fca5a5 100%); color: #dc2626; }
+        .icon-battery { background: linear-gradient(135deg, #dcfce7 0%, #86efac 100%); color: #16a34a; }
+        .icon-grid { background: linear-gradient(135deg, #e0e7ff 0%, #a5b4fc 100%); color: #7c3aed; }
+        .icon-environment { background: linear-gradient(135deg, #cffafe 0%, #67e8f9 100%); color: #0891b2; }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 0.75rem;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--secondary);
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 0.5rem 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-soc { background: linear-gradient(90deg, #ef4444, #f59e0b, #10b981); }
+
+        /* Device Lists */
+        .device-list {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .device-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 0.75rem;
+            border-left: 4px solid var(--primary);
+            transition: all 0.2s;
+        }
+
+        .device-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .device-info {
+            flex: 1;
+        }
+
+        .device-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .device-spec {
+            font-size: 0.875rem;
+            color: var(--secondary);
+        }
+
+        .device-output {
+            text-align: right;
+        }
+
+        .output-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .output-unit {
+            font-size: 0.875rem;
+            color: var(--secondary);
+        }
+
+        /* Controls */
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .control-group {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 1px solid var(--border);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(90deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        /* Charts */
+        .chart-container {
+            height: 200px;
+            margin-top: 1rem;
+        }
+
+        /* Page Sections */
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            .sidebar {
+                display: none;
+            }
+            .main-content {
+                margin-left: 0;
+            }
+        }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            border-radius: 0.75rem;
+            background: white;
+            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+            border-left: 4px solid var(--success);
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-success { background: #dcfce7; color: #166534; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+        .badge-danger { background: #fee2e2; color: #991b1b; }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tab {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            border-bottom-color: var(--primary);
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 20px 25px rgba(0,0,0,0.1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--secondary);
+        }
+
+        /* Energy Mix Chart */
+        .energy-mix {
+            display: flex;
+            height: 200px;
+            align-items: end;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .energy-bar {
+            flex: 1;
+            border-radius: 0.5rem 0.5rem 0 0;
+            position: relative;
+            transition: height 0.5s ease;
+        }
+
+        .energy-bar.wind { background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%); }
+        .energy-bar.solar { background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%); }
+        .energy-bar.diesel { background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%); }
+        .energy-bar.battery { background: linear-gradient(180deg, #10b981 0%, #047857 100%); }
+
+        .energy-label {
+            position: absolute;
+            bottom: -25px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 0.875rem;
+            color: var(--secondary);
+        }
+
+        /* Dashboard Stats */
+        .stats-overview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+
+        .stat-card i {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: var(--primary);
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card .label {
+            color: var(--secondary);
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo">
+                <i class="fas fa-leaf"></i>
+                <h1>Green Horizons</h1>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-title">Dashboard</div>
+                <div class="nav-item active" data-page="overview">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Overview</span>
+                </div>
+                <div class="nav-item" data-page="devices">
+                    <i class="fas fa-solar-panel"></i>
+                    <span>Devices</span>
+                </div>
+                <div class="nav-item" data-page="simulation">
+                    <i class="fas fa-cogs"></i>
+                    <span>Simulation</span>
+                </div>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-title">Controls</div>
+                <div class="nav-item" data-page="diesel">
+                    <i class="fas fa-gas-pump"></i>
+                    <span>Diesel Generators</span>
+                </div>
+                <div class="nav-item" data-page="batteries">
+                    <i class="fas fa-battery-full"></i>
+                    <span>Batteries</span>
+                </div>
+                <div class="nav-item" data-page="grid">
+                    <i class="fas fa-plug"></i>
+                    <span>Grid Connections</span>
+                </div>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-title">Analytics</div>
+                <div class="nav-item" data-page="analytics">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Analytics</span>
+                </div>
+                <div class="nav-item" data-page="history">
+                    <i class="fas fa-history"></i>
+                    <span>History</span>
+                </div>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-title">System</div>
+                <div class="nav-item" data-page="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Overview Page -->
+            <div class="page active" id="overview">
+                <div class="header">
+                    <h2><i class="fas fa-chart-bar"></i> System Overview</h2>
+                    <div class="time-display">
+                        <i class="far fa-clock"></i>
+                        <span id="current-time">Loading...</span>
+                    </div>
+                </div>
+
+                <!-- Stats Overview -->
+                <div class="stats-overview">
+                    <div class="stat-card">
+                        <i class="fas fa-bolt"></i>
+                        <div class="value" id="total-power">-- kW</div>
+                        <div class="label">Total Power</div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-sun"></i>
+                        <div class="value" id="renewable-percent">--%</div>
+                        <div class="label">Renewable Energy</div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-battery-half"></i>
+                        <div class="value" id="avg-soc">--%</div>
+                        <div class="label">Avg. Battery SOC</div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-gas-pump"></i>
+                        <div class="value" id="diesel-usage-hour">-- L/h</div>
+                        <div class="label">Diesel Usage</div>
+                    </div>
+                </div>
+
+                <!-- Energy Mix Visualization -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Energy Mix</h3>
+                        <div class="card-icon icon-environment">
+                            <i class="fas fa-chart-pie"></i>
+                        </div>
+                    </div>
+                    <div class="energy-mix">
+                        <div class="energy-bar wind" id="wind-bar" style="height: 40%">
+                            <div class="energy-label">Wind</div>
+                        </div>
+                        <div class="energy-bar solar" id="solar-bar" style="height: 30%">
+                            <div class="energy-label">Solar</div>
+                        </div>
+                        <div class="energy-bar diesel" id="diesel-bar" style="height: 20%">
+                            <div class="energy-label">Diesel</div>
+                        </div>
+                        <div class="energy-bar battery" id="battery-bar" style="height: 10%">
+                            <div class="energy-label">Battery</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Environment and Power Cards -->
+                <div class="cards-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Environment</h3>
+                            <div class="card-icon icon-environment">
+                                <i class="fas fa-cloud-sun"></i>
+                            </div>
+                        </div>
+                        <div class="stat-grid">
+                            <div class="stat-item">
+                                <div class="stat-value" id="temp-value">--°C</div>
+                                <div class="stat-label">Temperature</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="wind-value">-- m/s</div>
+                                <div class="stat-label">Wind Speed</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="radiation-value">-- W/m²</div>
+                                <div class="stat-label">Solar Radiation</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="wind-dir-value">--°</div>
+                                <div class="stat-label">Wind Direction</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Power Generation</h3>
+                            <div class="card-icon icon-solar">
+                                <i class="fas fa-bolt"></i>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="total-generation">-- kW</div>
+                            <div class="stat-label">Total Generation</div>
+                        </div>
+                        <div class="stat-grid">
+                            <div class="stat-item">
+                                <div class="stat-value" id="renewable-generation">-- kW</div>
+                                <div class="stat-label">Renewable</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="diesel-generation">-- kW</div>
+                                <div class="stat-label">Diesel</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Battery Status</h3>
+                            <div class="card-icon icon-battery">
+                                <i class="fas fa-battery-half"></i>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="soc-percent">--%</div>
+                            <div class="stat-label">State of Charge</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill progress-soc" id="soc-bar" style="width: 50%"></div>
+                            </div>
+                        </div>
+                        <div class="stat-grid">
+                            <div class="stat-item">
+                                <div class="stat-value" id="battery-power">-- kW</div>
+                                <div class="stat-label">Current Power</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="battery-capacity">-- kWh</div>
+                                <div class="stat-label">Capacity</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Device Status -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Device Status</h3>
+                        <span class="badge badge-success" id="device-count">0 devices</span>
+                    </div>
+                    <div class="device-list" id="devices-list">
+                        <!-- Devices will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Devices Page -->
+            <div class="page" id="devices">
+                <div class="header">
+                    <h2><i class="fas fa-solar-panel"></i> Device Management</h2>
+                    <button class="btn btn-primary" onclick="showAddDeviceModal()">
+                        <i class="fas fa-plus"></i> Add Device
+                    </button>
+                </div>
+
+                <div class="tabs">
+                    <div class="tab active" data-tab="all">All Devices</div>
+                    <div class="tab" data-tab="renewable">Renewable</div>
+                    <div class="tab" data-tab="storage">Storage</div>
+                    <div class="tab" data-tab="generation">Generation</div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Connected Devices</h3>
+                        <div class="card-icon icon-grid">
+                            <i class="fas fa-plug"></i>
+                        </div>
+                    </div>
+                    <div class="device-list" id="devices-management-list">
+                        <!-- Device management list will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Simulation Page -->
+            <div class="page" id="simulation">
+                <div class="header">
+                    <h2><i class="fas fa-cogs"></i> Simulation Control</h2>
+                    <div class="time-display">
+                        <i class="far fa-clock"></i>
+                        <span id="sim-time">Loading...</span>
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <div class="control-group">
+                        <h3>Simulation Control</h3>
+                        <p>Advance the simulation by one timestep</p>
+                        <div class="btn-group">
+                            <button class="btn btn-primary" onclick="simulateStep()">
+                                <i class="fas fa-play"></i> Step Simulation
+                            </button>
+                            <button class="btn btn-success" onclick="simulateRealistic()">
+                                <i class="fas fa-bolt"></i> Realistic Step
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <h3>Simulation Parameters</h3>
+                        <div class="form-group">
+                            <label class="form-label">Demand (kW)</label>
+                            <input type="number" class="form-control" id="demand-input" value="15.0" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Timestep (hours)</label>
+                            <input type="number" class="form-control" id="timestep-input" value="1.0" step="0.1">
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <h3>Simulation Status</h3>
+                        <div class="stat-item">
+                            <div class="stat-value" id="sim-demand">-- kW</div>
+                            <div class="stat-label">Current Demand</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="sim-step">--</div>
+                            <div class="stat-label">Simulation Step</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Recent Simulation Results</h3>
+                        <div class="card-icon icon-environment">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="simulation-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Other pages would follow similar structure -->
+            <!-- Diesel Control Page -->
+            <div class="page" id="diesel">
+                <div class="header">
+                    <h2><i class="fas fa-gas-pump"></i> Diesel Generator Control</h2>
+                    <button class="btn btn-primary" onclick="showAddDieselModal()">
+                        <i class="fas fa-plus"></i> Add Generator
+                    </button>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Diesel Control Strategy</h3>
+                        <span class="badge badge-warning" id="diesel-strategy-badge">Loading...</span>
+                    </div>
+                    <div class="controls">
+                        <div class="control-group">
+                            <h4>Select Strategy</h4>
+                            <select class="form-control" id="strategy-select" onchange="setDieselStrategy()">
+                                <option value="demand_following">Demand Following</option>
+                                <option value="battery_charging">Battery Charging</option>
+                                <option value="manual">Manual Control</option>
+                            </select>
+                            <p class="stat-label" style="margin-top: 1rem;">
+                                <span id="strategy-description">Run diesel only to meet unmet demand</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Diesel Generators</h3>
+                        <span class="badge badge-success" id="diesel-count">0 generators</span>
+                    </div>
+                    <div class="device-list" id="diesel-generators-list">
+                        <!-- Diesel generators will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Batteries Page -->
+            <div class="page" id="batteries">
+                <div class="header">
+                    <h2><i class="fas fa-battery-full"></i> Battery Management</h2>
+                    <button class="btn btn-primary" onclick="showAddBatteryModal()">
+                        <i class="fas fa-plus"></i> Add Battery
+                    </button>
+                </div>
+                
+                <div class="cards-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Battery Summary</h3>
+                            <div class="card-icon icon-battery">
+                                <i class="fas fa-battery-three-quarters"></i>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="total-battery-capacity">-- kWh</div>
+                            <div class="stat-label">Total Capacity</div>
+                        </div>
+                        <div class="stat-grid">
+                            <div class="stat-item">
+                                <div class="stat-value" id="total-battery-soc">--%</div>
+                                <div class="stat-label">Average SOC</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="total-battery-power">-- kW</div>
+                                <div class="stat-label">Current Power</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Battery Health</h3>
+                            <div class="card-icon icon-battery">
+                                <i class="fas fa-heartbeat"></i>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="battery-health">--%</div>
+                            <div class="stat-label">Overall Health</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill progress-soc" id="health-bar" style="width: 85%"></div>
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="cycle-count">--</div>
+                            <div class="stat-label">Charge Cycles</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Battery Systems</h3>
+                        <span class="badge badge-success" id="battery-count">0 batteries</span>
+                    </div>
+                    <div class="device-list" id="batteries-list">
+                        <!-- Batteries will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add more pages for Grid, Analytics, History, Settings as needed -->
+        </div>
+    </div>
+
+    <!-- Add Device Modal -->
+    <div class="modal" id="add-device-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Device</h3>
+                <button class="modal-close" onclick="closeModal('add-device-modal')">&times;</button>
+            </div>
+            <div class="tabs">
+                <div class="tab active" data-device-type="wind">Wind Turbine</div>
+                <div class="tab" data-device-type="solar">Solar Panel</div>
+                <div class="tab" data-device-type="diesel">Diesel Generator</div>
+                <div class="tab" data-device-type="battery">Battery</div>
+                <div class="tab" data-device-type="grid">Grid Connection</div>
+            </div>
+            
+            <form id="device-form">
+                <div class="form-group">
+                    <label class="form-label">Device Name</label>
+                    <input type="text" class="form-control" id="device-name" required>
+                </div>
+                
+                <div id="device-specific-fields">
+                    <!-- Fields will be populated based on device type -->
+                </div>
+                
+                <div class="btn-group" style="margin-top: 1.5rem;">
+                    <button type="button" class="btn" onclick="closeModal('add-device-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Device</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification">
+        <div id="notification-message">Operation completed successfully</div>
+    </div>
+
+    <script>
+        // API configuration
+        const API_BASE = 'http://localhost:8000';
+        let currentData = null;
+        let simulationStep = 0;
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeNavigation();
+            initializeTabs();
+            loadDashboardData();
+            setInterval(loadDashboardData, 5000); // Refresh every 5 seconds
+        });
+
+        // Initialize page navigation
+        function initializeNavigation() {
+            const navItems = document.querySelectorAll('.nav-item');
+            navItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    // Remove active class from all items
+                    navItems.forEach(i => i.classList.remove('active'));
+                    // Add active class to clicked item
+                    this.classList.add('active');
+                    
+                    // Hide all pages
+                    document.querySelectorAll('.page').forEach(page => {
+                        page.classList.remove('active');
+                    });
+                    
+                    // Show selected page
+                    const pageId = this.getAttribute('data-page');
+                    document.getElementById(pageId).classList.add('active');
+                });
+            });
+        }
+
+        // Initialize tab functionality
+        function initializeTabs() {
+            // Device page tabs
+            const deviceTabs = document.querySelectorAll('#devices .tab');
+            deviceTabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    deviceTabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    // In a real app, you would filter devices here
+                });
+            });
+            
+            // Modal tabs
+            const modalTabs = document.querySelectorAll('#add-device-modal .tab');
+            modalTabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    modalTabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    updateDeviceForm(this.getAttribute('data-device-type'));
+                });
+            });
+        }
+
+        // Load all dashboard data
+        async function loadDashboardData() {
+            try {
+                const response = await fetch(`${API_BASE}/`);
+                currentData = await response.json();
+                updateDashboard(currentData);
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                showNotification('Error connecting to server', 'error');
+            }
+        }
+
+        // Update dashboard with new data
+        function updateDashboard(data) {
+            // Update time
+            document.getElementById('current-time').textContent = 
+                new Date(data.timestamp).toLocaleTimeString();
+            document.getElementById('sim-time').textContent = 
+                new Date(data.timestamp).toLocaleTimeString();
+
+            // Update environment stats
+            document.getElementById('temp-value').textContent = `${data.environment.temperature}°C`;
+            document.getElementById('wind-value').textContent = `${data.environment.wind_speed} m/s`;
+            document.getElementById('radiation-value').textContent = `${data.environment.solar_radiation} W/m²`;
+            document.getElementById('wind-dir-value').textContent = `${data.environment.wind_direction}°`;
+
+            // Update power generation
+            document.getElementById('total-generation').textContent = `${data.total_generation.toFixed(2)} kW`;
+            document.getElementById('total-power').textContent = `${data.total_generation.toFixed(2)} kW`;
+            
+            // Calculate renewable vs diesel generation
+            let renewable = 0;
+            let diesel = 0;
+            let wind = 0;
+            let solar = 0;
+            let battery = 0;
+            
+            data.devices.forEach(device => {
+                if (device.type === 'WindTurbine') {
+                    renewable += device.power_output;
+                    wind += device.power_output;
+                } else if (device.type === 'SolarPanel') {
+                    renewable += device.power_output;
+                    solar += device.power_output;
+                } else if (device.type === 'DieselGenerator') {
+                    diesel += device.power_output;
+                } else if (device.type === 'Battery') {
+                    battery += Math.abs(device.power_output);
+                }
+            });
+            
+            // Update energy mix visualization
+            const totalPower = renewable + diesel + battery;
+            if (totalPower > 0) {
+                document.getElementById('wind-bar').style.height = `${(wind / totalPower) * 100}%`;
+                document.getElementById('solar-bar').style.height = `${(solar / totalPower) * 100}%`;
+                document.getElementById('diesel-bar').style.height = `${(diesel / totalPower) * 100}%`;
+                document.getElementById('battery-bar').style.height = `${(battery / totalPower) * 100}%`;
+            }
+            
+            document.getElementById('renewable-generation').textContent = `${renewable.toFixed(2)} kW`;
+            document.getElementById('diesel-generation').textContent = `${diesel.toFixed(2)} kW`;
+            document.getElementById('renewable-percent').textContent = `${((renewable / data.total_generation) * 100).toFixed(1)}%`;
+
+            // Update battery status
+            if (data.batteries && data.batteries.length > 0) {
+                const batteryData = data.batteries[0]; // Take first battery for main display
+                document.getElementById('soc-percent').textContent = `${batteryData.soc_percent.toFixed(1)}%`;
+                document.getElementById('avg-soc').textContent = `${batteryData.soc_percent.toFixed(1)}%`;
+                document.getElementById('soc-bar').style.width = `${batteryData.soc_percent}%`;
+                document.getElementById('battery-power').textContent = `${batteryData.current_power.toFixed(2)} kW`;
+                document.getElementById('battery-capacity').textContent = `${batteryData.capacity_kwh} kWh`;
+                document.getElementById('total-battery-power').textContent = `${batteryData.current_power.toFixed(2)} kW`;
+                document.getElementById('total-battery-capacity').textContent = `${batteryData.capacity_kwh} kWh`;
+                document.getElementById('total-battery-soc').textContent = `${batteryData.soc_percent.toFixed(1)}%`;
+            }
+
+            // Update device list
+            updateDeviceList(data.devices);
+            document.getElementById('device-count').textContent = `${data.device_count} devices`;
+
+            // Update diesel strategy
+            document.getElementById('diesel-strategy-badge').textContent = 
+                data.diesel_strategy.replace('_', ' ').toUpperCase();
+            
+            // Update system status
+            document.getElementById('grid-power').textContent = `${data.total_grid_power.toFixed(2)} kW`;
+            
+            // Calculate total diesel usage
+            let totalDieselUsage = 0;
+            data.devices.forEach(device => {
+                if (device.type === 'DieselGenerator' && device.current_diesel_usage) {
+                    totalDieselUsage += device.current_diesel_usage;
+                }
+            });
+            document.getElementById('diesel-usage').textContent = `${totalDieselUsage.toFixed(2)} L/h`;
+            document.getElementById('diesel-usage-hour').textContent = `${totalDieselUsage.toFixed(2)} L/h`;
+            
+            // Update simulation status
+            document.getElementById('sim-demand').textContent = `${data.total_generation.toFixed(2)} kW`;
+            document.getElementById('sim-step').textContent = simulationStep;
+            
+            // Update device counts
+            const dieselGenerators = data.devices.filter(d => d.type === 'DieselGenerator');
+            document.getElementById('diesel-count').textContent = `${dieselGenerators.length} generators`;
+            
+            const batteries = data.devices.filter(d => d.type === 'Battery');
+            document.getElementById('battery-count').textContent = `${batteries.length} batteries`;
+        }
+
+        // Update device list
+        function updateDeviceList(devices) {
+            const container = document.getElementById('devices-list');
+            const managementContainer = document.getElementById('devices-management-list');
+            const dieselContainer = document.getElementById('diesel-generators-list');
+            const batteriesContainer = document.getElementById('batteries-list');
+            
+            container.innerHTML = '';
+            managementContainer.innerHTML = '';
+            dieselContainer.innerHTML = '';
+            batteriesContainer.innerHTML = '';
+
+            devices.forEach(device => {
+                const deviceElement = createDeviceElement(device);
+                container.appendChild(deviceElement.cloneNode(true));
+                managementContainer.appendChild(deviceElement.cloneNode(true));
+                
+                if (device.type === 'DieselGenerator') {
+                    dieselContainer.appendChild(createDeviceElement(device, true));
+                } else if (device.type === 'Battery') {
+                    batteriesContainer.appendChild(createDeviceElement(device, true));
+                }
+            });
+        }
+
+        // Create device element
+        function createDeviceElement(device, withControls = false) {
+            const deviceElement = document.createElement('div');
+            deviceElement.className = 'device-item';
+            
+            let icon = 'fa-question';
+            let typeClass = '';
+            
+            switch(device.type) {
+                case 'WindTurbine':
+                    icon = 'fa-wind';
+                    typeClass = 'icon-wind';
+                    break;
+                case 'SolarPanel':
+                    icon = 'fa-solar-panel';
+                    typeClass = 'icon-solar';
+                    break;
+                case 'DieselGenerator':
+                    icon = 'fa-gas-pump';
+                    typeClass = 'icon-diesel';
+                    break;
+                case 'Battery':
+                    icon = 'fa-battery-half';
+                    typeClass = 'icon-battery';
+                    break;
+                case 'GridConnection':
+                    icon = 'fa-plug';
+                    typeClass = 'icon-grid';
+                    break;
+            }
+
+            let controlsHTML = '';
+            if (withControls) {
+                controlsHTML = `
+                    <div style="margin-left: 1rem;">
+                        <button class="btn" style="padding: 0.5rem;" onclick="removeDevice('${device.name}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+            }
+
+            deviceElement.innerHTML = `
+                <div class="device-info">
+                    <div class="device-name">${device.name}</div>
+                    <div class="device-spec">${device.type} • ${getDeviceSpec(device)}</div>
+                </div>
+                <div class="device-output">
+                    <div class="output-value">${device.power_output.toFixed(2)}</div>
+                    <div class="output-unit">kW</div>
+                </div>
+                <div class="card-icon ${typeClass}" style="width: 40px; height: 40px; margin-left: 1rem;">
+                    <i class="fas ${icon}"></i>
+                </div>
+                ${controlsHTML}
+            `;
+            
+            return deviceElement;
+        }
+
+        // Get device specification string
+        function getDeviceSpec(device) {
+            switch(device.type) {
+                case 'WindTurbine':
+                    return `${device.rated_power} kW • ${device.direction}°`;
+                case 'SolarPanel':
+                    return `${device.rated_power} kW`;
+                case 'DieselGenerator':
+                    return `${device.rated_power} kW`;
+                case 'Battery':
+                    return `${device.capacity_kwh} kWh`;
+                case 'GridConnection':
+                    return `Import: $${device.import_price}/kWh`;
+                default:
+                    return '';
+            }
+        }
+
+        // Modal functions
+        function showAddDeviceModal() {
+            document.getElementById('add-device-modal').style.display = 'flex';
+            updateDeviceForm('wind'); // Default to wind turbine
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        function updateDeviceForm(deviceType) {
+            const fieldsContainer = document.getElementById('device-specific-fields');
+            let fieldsHTML = '';
+            
+            switch(deviceType) {
+                case 'wind':
+                    fieldsHTML = `
+                        <div class="form-group">
+                            <label class="form-label">Rated Power (kW)</label>
+                            <input type="number" class="form-control" id="rated-power" value="100" step="0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Direction (degrees)</label>
+                            <input type="number" class="form-control" id="direction" value="0" min="0" max="360" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Cut-in Speed (m/s)</label>
+                            <input type="number" class="form-control" id="cut-in-speed" value="3.0" step="0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Rated Speed (m/s)</label>
+                            <input type="number" class="form-control" id="rated-speed" value="12.0" step="0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Cut-out Speed (m/s)</label>
+                            <input type="number" class="form-control" id="cut-out-speed" value="25.0" step="0.1" required>
+                        </div>
+                    `;
+                    break;
+                case 'solar':
+                    fieldsHTML = `
+                        <div class="form-group">
+                            <label class="form-label">Rated Power (kW)</label>
+                            <input type="number" class="form-control" id="rated-power" value="50" step="0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Temperature Coefficient</label>
+                            <input type="number" class="form-control" id="temp-coefficient" value="0.004" step="0.001" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">STC Temperature (°C)</label>
+                            <input type="number" class="form-control" id="stc-temp" value="25.0" step="0.1" required>
+                        </div>
+                    `;
+                    break;
+                case 'diesel':
+                    fieldsHTML = `
+                        <div class="form-group">
+                            <label class="form-label">Rated Power (kW)</label>
+                            <input type="number" class="form-control" id="rated-power" value="200" step="0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Diesel Usage (L/kW)</label>
+                            <input type="number" class="form-control" id="diesel-usage" value="0.4" step="0.01" required>
+                        </div>
+                    `;
+                    break;
+                case 'battery':
+                    fieldsHTML = `
+                        <div class="form-group">
+                            <label class="form-label">Capacity (kWh)</label>
+                            <input type="number" class="form-control" id="capacity" value="100" step="0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Max Power (kW)</label>
+                            <input type="number" class="form-control" id="max-power" value="50" step="0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Efficiency</label>
+                            <input type="number" class="form-control" id="efficiency" value="0.9" min="0.1" max="1.0" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Initial Charge (%)</label>
+                            <input type="number" class="form-control" id="initial-charge" value="50" min="0" max="100" required>
+                        </div>
+                    `;
+                    break;
+                case 'grid':
+                    fieldsHTML = `
+                        <div class="form-group">
+                            <label class="form-label">Import Price ($/kWh)</label>
+                            <input type="number" class="form-control" id="import-price" value="0.15" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Export Price ($/kWh)</label>
+                            <input type="number" class="form-control" id="export-price" value="0.10" step="0.01" required>
+                        </div>
+                    `;
+                    break;
+            }
+            
+            fieldsContainer.innerHTML = fieldsHTML;
+        }
+
+        // Device form submission
+        document.getElementById('device-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const deviceType = document.querySelector('#add-device-modal .tab.active').getAttribute('data-device-type');
+            const deviceName = document.getElementById('device-name').value;
+            
+            let endpoint = '';
+            let requestBody = {};
+            
+            switch(deviceType) {
+                case 'wind':
+                    endpoint = '/add/windturbine';
+                    requestBody = {
+                        name: deviceName,
+                        rated_power: parseFloat(document.getElementById('rated-power').value),
+                        direction: parseInt(document.getElementById('direction').value),
+                        cut_in_speed: parseFloat(document.getElementById('cut-in-speed').value),
+                        rated_speed: parseFloat(document.getElementById('rated-speed').value),
+                        cut_out_speed: parseFloat(document.getElementById('cut-out-speed').value)
+                    };
+                    break;
+                case 'solar':
+                    endpoint = '/add/solarpanel';
+                    requestBody = {
+                        name: deviceName,
+                        rated_power: parseFloat(document.getElementById('rated-power').value),
+                        temp_coefficient: parseFloat(document.getElementById('temp-coefficient').value),
+                        stc_temp: parseFloat(document.getElementById('stc-temp').value)
+                    };
+                    break;
+                case 'diesel':
+                    endpoint = '/add/dieselgenerator';
+                    requestBody = {
+                        name: deviceName,
+                        rated_power: parseFloat(document.getElementById('rated-power').value),
+                        diesel_usage_litre_per_kw: parseFloat(document.getElementById('diesel-usage').value)
+                    };
+                    break;
+                case 'battery':
+                    endpoint = '/add/battery';
+                    requestBody = {
+                        name: deviceName,
+                        capacity_kwh: parseFloat(document.getElementById('capacity').value),
+                        max_power_kw: parseFloat(document.getElementById('max-power').value),
+                        efficiency: parseFloat(document.getElementById('efficiency').value),
+                        initial_charge: parseFloat(document.getElementById('initial-charge').value) / 100
+                    };
+                    break;
+                case 'grid':
+                    endpoint = '/add/gridconnection';
+                    requestBody = {
+                        name: deviceName,
+                        import_price: parseFloat(document.getElementById('import-price').value),
+                        export_price: parseFloat(document.getElementById('export-price').value)
+                    };
+                    break;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                if (response.ok) {
+                    showNotification(`${deviceType.charAt(0).toUpperCase() + deviceType.slice(1)} added successfully`, 'success');
+                    closeModal('add-device-modal');
+                    loadDashboardData();
+                } else {
+                    const error = await response.json();
+                    showNotification(`Error: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error adding device:', error);
+                showNotification('Error adding device', 'error');
+            }
+        });
+
+        // Remove device
+        async function removeDevice(deviceName) {
+            if (confirm(`Are you sure you want to remove ${deviceName}?`)) {
+                try {
+                    const response = await fetch(`${API_BASE}/remove/${encodeURIComponent(deviceName)}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (response.ok) {
+                        showNotification(`Device ${deviceName} removed successfully`, 'success');
+                        loadDashboardData();
+                    } else {
+                        const error = await response.json();
+                        showNotification(`Error: ${error.detail}`, 'error');
+                    }
+                } catch (error) {
+                    console.error('Error removing device:', error);
+                    showNotification('Error removing device', 'error');
+                }
+            }
+        }
+
+        // Simulation controls
+        async function simulateStep() {
+            try {
+                showNotification('Running simulation step...', 'info');
+                const demand = parseFloat(document.getElementById('demand-input').value) || 15.0;
+                const timestep = parseFloat(document.getElementById('timestep-input').value) || 1.0;
+                
+                const response = await fetch(`${API_BASE}/simulate/step`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ demand_kw: demand, timestep_hours: timestep })
+                });
+                const result = await response.json();
+                simulationStep++;
+                showNotification('Simulation step completed', 'success');
+                loadDashboardData();
+            } catch (error) {
+                console.error('Error running simulation:', error);
+                showNotification('Error running simulation', 'error');
+            }
+        }
+
+        async function simulateRealistic() {
+            try {
+                showNotification('Running realistic simulation...', 'info');
+                const response = await fetch(`${API_BASE}/simulate/realistic?total_daily_kwh=15.0&timestep_hours=1.0`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                simulationStep++;
+                showNotification('Realistic simulation completed', 'success');
+                loadDashboardData();
+            } catch (error) {
+                console.error('Error running realistic simulation:', error);
+                showNotification('Error running simulation', 'error');
+            }
+        }
+
+        // Diesel strategy control
+        async function setDieselStrategy() {
+            const strategy = document.getElementById('strategy-select').value;
+            try {
+                const response = await fetch(`${API_BASE}/diesel/strategy`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(strategy)
+                });
+                
+                // Update strategy description
+                let description = '';
+                switch(strategy) {
+                    case 'demand_following':
+                        description = 'Run diesel only to meet unmet demand';
+                        break;
+                    case 'battery_charging':
+                        description = 'Run diesel to charge battery when SOC < 30%';
+                        break;
+                    case 'manual':
+                        description = 'Use manually set setpoints for each generator';
+                        break;
+                }
+                document.getElementById('strategy-description').textContent = description;
+                
+                showNotification(`Diesel strategy set to ${strategy}`, 'success');
+                loadDashboardData();
+            } catch (error) {
+                console.error('Error setting diesel strategy:', error);
+                showNotification('Error setting diesel strategy', 'error');
+            }
+        }
+
+        // Notification system
+        function showNotification(message, type = 'info') {
+            const notification = document.getElementById('notification');
+            const messageEl = document.getElementById('notification-message');
+            
+            messageEl.textContent = message;
+            
+            // Set color based on type
+            notification.style.borderLeftColor = 
+                type === 'error' ? 'var(--danger)' : 
+                type === 'warning' ? 'var(--warning)' : 
+                type === 'success' ? 'var(--success)' : 'var(--primary)';
+            
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        // Utility functions for modal displays
+        function showAddDieselModal() {
+            document.querySelector('#add-device-modal .tab[data-device-type="diesel"]').click();
+            showAddDeviceModal();
+        }
+
+        function showAddBatteryModal() {
+            document.querySelector('#add-device-modal .tab[data-device-type="battery"]').click();
+            showAddDeviceModal();
+        }
+    </script>
+</body>
+</html>

@@ -6,7 +6,6 @@ This class represents the physical world and properties related to microgrid pow
 from datetime import datetime, timedelta
 import random
 import math
-import time
 
 
 class Environment:
