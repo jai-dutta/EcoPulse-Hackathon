@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { BarChart3, CloudCog, Coins, Leaf, Zap, Fuel, AlertTriangle, RefreshCw } from "lucide-react"
 
@@ -35,6 +36,7 @@ interface SavingsResult {
 
 export function SimulationAnalysis({ systemStatus }: SimulationAnalysisProps) {
   const [selectedDevice, setSelectedDevice] = useState<string>("")
+  const [duration, setDuration] = useState<number>(30)
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -52,23 +54,25 @@ export function SimulationAnalysis({ systemStatus }: SimulationAnalysisProps) {
     setAnalysisResult(null)
 
     try {
-      // NOTE: This assumes a new backend endpoint /analyze/scenario exists.
-      // The endpoint should run a 24-hour simulation for accurate cost/CO2 comparison.
       const response = await fetch(`http://localhost:8000/analyze/scenario`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ exclude_device_name: selectedDevice }),
+        body: JSON.stringify({
+          exclude_device_name: selectedDevice,
+          duration_days: duration,
+        }),
       })
 
       if (!response.ok) {
-        throw new Error(`API Error: ${response.statusText}`)
+        const errData = await response.json()
+        throw new Error(errData.detail || `API Error: ${response.statusText}`)
       }
 
       const data = await response.json()
       setAnalysisResult(data)
-    } catch (err) {
+    } catch (err: any) {
       console.error("Analysis failed:", err)
-      setError("Failed to run analysis. Ensure the backend supports the /analyze/scenario endpoint.")
+      setError(err.message || "Failed to run analysis. Check the console and backend server for details.")
     } finally {
       setIsLoading(false)
     }
@@ -76,6 +80,10 @@ export function SimulationAnalysis({ systemStatus }: SimulationAnalysisProps) {
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value)
+  }
+
+  const formatNumber = (value: number) => {
+    return new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 }).format(value)
   }
 
   return (
@@ -92,7 +100,7 @@ export function SimulationAnalysis({ systemStatus }: SimulationAnalysisProps) {
         <CardHeader>
           <CardTitle>Run Impact Analysis</CardTitle>
           <CardDescription>
-            Select a renewable device to simulate its removal from the grid for a 24-hour period. This analysis
+            Select a renewable device and a time period to simulate its removal from the grid. This analysis
             calculates the financial and environmental impact.
           </CardDescription>
         </CardHeader>
@@ -112,14 +120,29 @@ export function SimulationAnalysis({ systemStatus }: SimulationAnalysisProps) {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={runAnalysis} disabled={isLoading || !selectedDevice} className="w-full md:w-auto gap-2">
+          <div className="w-full md:w-1/4">
+            <Label htmlFor="duration-days">Duration (days)</Label>
+            <Input
+              id="duration-days"
+              type="number"
+              value={duration}
+              onChange={(e) => setDuration(Math.max(1, parseInt(e.target.value) || 1))}
+              min="1"
+              className="mt-1"
+            />
+          </div>
+          <Button
+            onClick={runAnalysis}
+            disabled={isLoading || !selectedDevice}
+            className="w-full md:w-auto gap-2 flex-grow"
+          >
             {isLoading ? (
               <>
                 <RefreshCw className="h-4 w-4 animate-spin" />
                 Analyzing...
               </>
             ) : (
-              "Run Analysis"
+              `Run ${duration}-Day Analysis`
             )}
           </Button>
         </CardContent>
@@ -146,14 +169,15 @@ export function SimulationAnalysis({ systemStatus }: SimulationAnalysisProps) {
                 Analysis Complete: Impact of removing {selectedDevice}
               </CardTitle>
               <CardDescription>
-                Summary of a 24-hour simulation comparing the microgrid with and without the selected renewable source.
+                Summary of a {duration}-day simulation comparing the microgrid with and without the selected renewable
+                source.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-6 md:grid-cols-3">
               <div className="flex flex-col items-center justify-center p-6 rounded-lg bg-card border">
                 <p className="text-sm text-muted-foreground">CO₂ Emissions Saved</p>
                 <p className="text-3xl font-bold text-accent mt-1">
-                  {analysisResult.savings.co2_saved_kg.toFixed(1)} kg
+                  {formatNumber(analysisResult.savings.co2_saved_kg)} kg
                 </p>
                 <p className="text-sm font-medium text-accent">
                   ({analysisResult.savings.co2_saving_percent.toFixed(0)}% reduction)
@@ -171,7 +195,7 @@ export function SimulationAnalysis({ systemStatus }: SimulationAnalysisProps) {
               <div className="flex flex-col items-center justify-center p-6 rounded-lg bg-card border">
                 <p className="text-sm text-muted-foreground">Renewable Contribution</p>
                 <p className="text-3xl font-bold text-accent mt-1">
-                  {analysisResult.with_renewable.renewable_generation_kwh.toFixed(1)} kWh
+                  {formatNumber(analysisResult.with_renewable.renewable_generation_kwh)} kWh
                 </p>
                 <p className="text-sm font-medium text-muted-foreground">Generated by {selectedDevice}</p>
               </div>
@@ -186,32 +210,32 @@ export function SimulationAnalysis({ systemStatus }: SimulationAnalysisProps) {
               <CardContent className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-2 text-sm">
-                    <Coins className="h-4 w-4 text-primary" /> Total 24h Cost
+                    <Coins className="h-4 w-4 text-primary" /> Total Cost
                   </span>
-                  <span className="font-mono text-lg">{formatCurrency(analysisResult.with_renewable.total_cost)}</span>
+                  <span className="font-mono text-lg">
+                    {formatCurrency(analysisResult.with_renewable.total_cost)}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-2 text-sm">
                     <CloudCog className="h-4 w-4 text-muted-foreground" /> CO₂ Emissions
                   </span>
                   <span className="font-mono text-lg">
-                    {analysisResult.with_renewable.co2_emissions_kg.toFixed(1)} kg
+                    {formatNumber(analysisResult.with_renewable.co2_emissions_kg)} kg
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-2 text-sm">
                     <Fuel className="h-4 w-4 text-chart-4" /> Diesel Usage
                   </span>
-                  <span className="font-mono text-lg">
-                    {analysisResult.with_renewable.diesel_usage_l.toFixed(1)} L
-                  </span>
+                  <span className="font-mono text-lg">{formatNumber(analysisResult.with_renewable.diesel_usage_l)} L</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-2 text-sm">
                     <Zap className="h-4 w-4 text-chart-1" /> Grid Import
                   </span>
                   <span className="font-mono text-lg">
-                    {analysisResult.with_renewable.grid_import_kwh.toFixed(1)} kWh
+                    {formatNumber(analysisResult.with_renewable.grid_import_kwh)} kWh
                   </span>
                 </div>
               </CardContent>
@@ -224,7 +248,7 @@ export function SimulationAnalysis({ systemStatus }: SimulationAnalysisProps) {
               <CardContent className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="flex items-center gap-2 text-sm">
-                    <Coins className="h-4 w-4 text-primary" /> Total 24h Cost
+                    <Coins className="h-4 w-4 text-primary" /> Total Cost
                   </span>
                   <span className="font-mono text-lg">
                     {formatCurrency(analysisResult.without_renewable.total_cost)}
@@ -235,7 +259,7 @@ export function SimulationAnalysis({ systemStatus }: SimulationAnalysisProps) {
                     <CloudCog className="h-4 w-4 text-muted-foreground" /> CO₂ Emissions
                   </span>
                   <span className="font-mono text-lg">
-                    {analysisResult.without_renewable.co2_emissions_kg.toFixed(1)} kg
+                    {formatNumber(analysisResult.without_renewable.co2_emissions_kg)} kg
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -243,7 +267,7 @@ export function SimulationAnalysis({ systemStatus }: SimulationAnalysisProps) {
                     <Fuel className="h-4 w-4 text-chart-4" /> Diesel Usage
                   </span>
                   <span className="font-mono text-lg">
-                    {analysisResult.without_renewable.diesel_usage_l.toFixed(1)} L
+                    {formatNumber(analysisResult.without_renewable.diesel_usage_l)} L
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -251,7 +275,7 @@ export function SimulationAnalysis({ systemStatus }: SimulationAnalysisProps) {
                     <Zap className="h-4 w-4 text-chart-1" /> Grid Import
                   </span>
                   <span className="font-mono text-lg">
-                    {analysisResult.without_renewable.grid_import_kwh.toFixed(1)} kWh
+                    {formatNumber(analysisResult.without_renewable.grid_import_kwh)} kWh
                   </span>
                 </div>
               </CardContent>

@@ -9,87 +9,77 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Plus, Trash2, Wind, Sun, Battery, Fuel, Zap } from "lucide-react"
-import { useSimulation } from "@/app/context/SimulationContext"
-import { SimulationControls } from "./simulation-controls"
 
-export function DeviceManagementWrapper() {
-  const { refresh } = useSimulation()
-
-  useEffect(() => {
-    // Refresh immediately on mount
-    refresh()
-    // Set up interval (e.g., every 2 seconds)
-    const interval = setInterval(() => {
-      refresh()
-    }, 1000)
-
-    // Clean up on unmount
-    return () => clearInterval(interval)
-  }, [refresh])
-
-  return <SimulationControls onUpdate={refresh} />
-}
 interface DeviceManagementProps {
   systemStatus: any
   onUpdate: () => void
 }
-
 
 export function DeviceManagement({ systemStatus, onUpdate }: DeviceManagementProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [deviceType, setDeviceType] = useState("windturbine")
   const [isLoading, setIsLoading] = useState(false)
 
-  const addDevice = async (formData: FormData) => {
+  const addDevice = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
     setIsLoading(true)
+
+    const formData = new FormData(event.currentTarget)
+    const params: { [key: string]: any } = {}
+    formData.forEach((value, key) => {
+      params[key] = value
+    })
+
+    // Coerce specific fields to numbers
+    const numberFields = [
+      "rated_power",
+      "direction",
+      "cut_in_speed",
+      "rated_speed",
+      "cut_out_speed",
+      "temp_coefficient",
+      "stc_temp",
+      "capacity_kwh",
+      "max_power_kw",
+      "efficiency",
+      "initial_charge",
+      "import_price",
+      "export_price",
+      "diesel_usage_litre_per_kw",
+    ]
+    for (const field of numberFields) {
+      if (params[field]) {
+        const num = parseFloat(params[field])
+        if (!isNaN(num)) {
+          params[field] = num
+        }
+      }
+    }
+
+    const payload = {
+      type: deviceType,
+      params: params,
+    }
+
     try {
-      const endpoint = `http://localhost:8000/add/${deviceType}`
-      const data: any = {
-        name: formData.get("name"),
-      }
-
-      // Add device-specific fields
-      switch (deviceType) {
-        case "windturbine":
-          data.rated_power = Number.parseFloat(formData.get("rated_power") as string)
-          data.direction = Number.parseInt(formData.get("direction") as string)
-          data.cut_in_speed = Number.parseFloat(formData.get("cut_in_speed") as string) || 3.0
-          data.rated_speed = Number.parseFloat(formData.get("rated_speed") as string) || 12.0
-          data.cut_out_speed = Number.parseFloat(formData.get("cut_out_speed") as string) || 25.0
-          break
-        case "solarpanel":
-          data.rated_power = Number.parseFloat(formData.get("rated_power") as string)
-          data.temp_coefficient = Number.parseFloat(formData.get("temp_coefficient") as string) || 0.004
-          data.stc_temp = Number.parseFloat(formData.get("stc_temp") as string) || 25.0
-          break
-        case "battery":
-          data.capacity_kwh = Number.parseFloat(formData.get("capacity_kwh") as string)
-          data.max_power_kw = Number.parseFloat(formData.get("max_power_kw") as string)
-          data.efficiency = Number.parseFloat(formData.get("efficiency") as string) || 0.9
-          data.initial_charge = Number.parseFloat(formData.get("initial_charge") as string) || 0.5
-          break
-        case "dieselgenerator":
-          data.rated_power = Number.parseFloat(formData.get("rated_power") as string)
-          data.diesel_usage_litre_per_kw = Number.parseFloat(formData.get("diesel_usage_litre_per_kw") as string) || 0.4
-          break
-        case "gridconnection":
-          data.import_price = Number.parseFloat(formData.get("import_price") as string)
-          data.export_price = Number.parseFloat(formData.get("export_price") as string)
-          break
-      }
-
-      const response = await fetch(endpoint, {
+      const response = await fetch("http://localhost:8000/device", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       })
 
       if (response.ok) {
         setIsAddDialogOpen(false)
         onUpdate()
+      } else {
+        // Handle error from backend
+        const errorData = await response.json()
+        console.error("Failed to add device:", errorData.detail)
+        alert(`Error: ${errorData.detail}`)
       }
     } catch (error) {
       console.error("Failed to add device:", error)
+      alert("An unexpected error occurred. Check the console for details.")
     } finally {
       setIsLoading(false)
     }
@@ -97,7 +87,7 @@ export function DeviceManagement({ systemStatus, onUpdate }: DeviceManagementPro
 
   const removeDevice = async (deviceName: string) => {
     try {
-      const response = await fetch(`http://localhost:8000/remove/${deviceName}`, {
+      const response = await fetch(`http://localhost:8000/device/${deviceName}`, {
         method: "DELETE",
       })
       if (response.ok) {
@@ -114,9 +104,9 @@ export function DeviceManagement({ systemStatus, onUpdate }: DeviceManagementPro
 
   const windTurbines = systemStatus.devices.filter((d: any) => d.type === "WindTurbine")
   const solarPanels = systemStatus.devices.filter((d: any) => d.type === "SolarPanel")
-  const batteries = systemStatus.devices.filter((d: any) => d.type === "Battery")
+  const batteries = systemStatus.batteries
   const dieselGens = systemStatus.devices.filter((d: any) => d.type === "DieselGenerator")
-  const gridConnections = systemStatus.devices.filter((d: any) => d.type === "GridConnection")
+  const gridConnections = systemStatus.grid_connections
 
   return (
     <div className="space-y-6">
@@ -133,7 +123,7 @@ export function DeviceManagement({ systemStatus, onUpdate }: DeviceManagementPro
             <DialogHeader>
               <DialogTitle>Add New Device</DialogTitle>
             </DialogHeader>
-            <form action={addDevice} className="space-y-4">
+            <form onSubmit={addDevice} className="space-y-4">
               <div>
                 <Label htmlFor="deviceType">Device Type</Label>
                 <select
@@ -184,6 +174,32 @@ export function DeviceManagement({ systemStatus, onUpdate }: DeviceManagementPro
                     </div>
                   </div>
                 </>
+              )}
+
+              {deviceType === "solarpanel" && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label htmlFor="temp_coefficient">Temp. Coeff.</Label>
+                    <Input id="temp_coefficient" name="temp_coefficient" type="number" step="0.001" placeholder="0.004" />
+                  </div>
+                  <div>
+                    <Label htmlFor="stc_temp">STC Temp (°C)</Label>
+                    <Input id="stc_temp" name="stc_temp" type="number" step="1" placeholder="25.0" />
+                  </div>
+                </div>
+              )}
+
+              {deviceType === "dieselgenerator" && (
+                <div>
+                  <Label htmlFor="diesel_usage_litre_per_kw">Fuel Usage (L/kW)</Label>
+                  <Input
+                    id="diesel_usage_litre_per_kw"
+                    name="diesel_usage_litre_per_kw"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.4"
+                  />
+                </div>
               )}
 
               {deviceType === "battery" && (
@@ -278,9 +294,9 @@ export function DeviceManagement({ systemStatus, onUpdate }: DeviceManagementPro
                   <CardTitle className="text-base">{device.name}</CardTitle>
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon"
                     onClick={() => removeDevice(device.name)}
-                    className="text-destructive hover:text-destructive"
+                    className="text-destructive hover:text-destructive h-8 w-8"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -320,9 +336,9 @@ export function DeviceManagement({ systemStatus, onUpdate }: DeviceManagementPro
                   <CardTitle className="text-base">{device.name}</CardTitle>
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon"
                     onClick={() => removeDevice(device.name)}
-                    className="text-destructive hover:text-destructive"
+                    className="text-destructive hover:text-destructive h-8 w-8"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -356,9 +372,9 @@ export function DeviceManagement({ systemStatus, onUpdate }: DeviceManagementPro
                   <CardTitle className="text-base">{device.name}</CardTitle>
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon"
                     onClick={() => removeDevice(device.name)}
-                    className="text-destructive hover:text-destructive"
+                    className="text-destructive hover:text-destructive h-8 w-8"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -367,7 +383,7 @@ export function DeviceManagement({ systemStatus, onUpdate }: DeviceManagementPro
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-sm">Current Power</span>
-                      <Badge variant="outline">{device.power_output.toFixed(1)} kW</Badge>
+                      <Badge variant="outline">{device.current_power.toFixed(1)} kW</Badge>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">State of Charge</span>
@@ -396,9 +412,9 @@ export function DeviceManagement({ systemStatus, onUpdate }: DeviceManagementPro
                   <CardTitle className="text-base">{device.name}</CardTitle>
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon"
                     onClick={() => removeDevice(device.name)}
-                    className="text-destructive hover:text-destructive"
+                    className="text-destructive hover:text-destructive h-8 w-8"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -436,9 +452,9 @@ export function DeviceManagement({ systemStatus, onUpdate }: DeviceManagementPro
                   <CardTitle className="text-base">{device.name}</CardTitle>
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="icon"
                     onClick={() => removeDevice(device.name)}
-                    className="text-destructive hover:text-destructive"
+                    className="text-destructive hover:text-destructive h-8 w-8"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -447,7 +463,7 @@ export function DeviceManagement({ systemStatus, onUpdate }: DeviceManagementPro
                   <div className="space-y-2">
                     <div className="flex justify-between">
                       <span className="text-sm">Power Flow</span>
-                      <Badge variant="outline">{device.power_output.toFixed(1)} kW</Badge>
+                      <Badge variant="outline">{device.current_power.toFixed(1)} kW</Badge>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-sm">Status</span>
