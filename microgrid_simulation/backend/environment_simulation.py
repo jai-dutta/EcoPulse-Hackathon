@@ -14,11 +14,12 @@ class Environment:
     def __init__(self):
         self.current_time: datetime = datetime.now()
         self.set_environment_values()
+        
     @staticmethod
     def get_instance():
-        if Environment.__instance == None:
-            __instance = Environment()
-        return __instance
+        if Environment.__instance is None:
+            Environment.__instance = Environment()
+        return Environment.__instance
 
 
     def set_environment_values(self):

@@ -15,7 +15,6 @@ app.add_middleware(
 )
 
 env = get_environment_instance()
-
 @app.get("/environment")
 def get_environment():
     """
@@ -88,6 +87,9 @@ def reset_environment():
     env = Environment()
     return {"message": "Environment reset to initial state", "environment": get_environment()}
 
-if __name__ == "__main__":
+def run():
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8100)
+    
+if __name__ == "__main__":
+    run()

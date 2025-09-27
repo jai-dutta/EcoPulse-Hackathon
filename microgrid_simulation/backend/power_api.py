@@ -74,6 +74,7 @@ class DieselSetpointRequest(BaseModel):
 environment = get_environment_instance()
 microgrid = get_microgrid_instance()
 
+
 def _env_state():
     return {
         "time": environment.current_time.strftime("%Y-%m-%d %H:%M"),
@@ -638,7 +639,9 @@ def health_check():
         "devices_count": len(microgrid.devices),
         "environment_time": environment.current_time.isoformat()
     }
-
-if __name__ == "__main__":
+def run():
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+    
+if __name__ == "__main__":
+    run()
