@@ -19,21 +19,23 @@ import {
   Pie,
   Cell,
 } from "recharts"
-import { Battery, Fuel, Sun, Wind, Zap, Activity, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react"
+import { Battery, Fuel, Sun, Wind, Zap, Activity, TrendingUp, TrendingDown, AlertTriangle, Leaf } from "lucide-react"
+import { useMonitoring } from "@/app/page"
 
 interface RealTimeMonitoringProps {
   systemStatus: any
 }
 
 export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
-  const [historicalData, setHistoricalData] = useState<any[]>([])
+  const { historicalData } = useMonitoring()
   const [batteryStatus, setBatteryStatus] = useState<any[]>([])
   const [dieselStatus, setDieselStatus] = useState<any>(null)
   const [gridStatus, setGridStatus] = useState<any[]>([])
 
-  // Fetch additional monitoring data
   useEffect(() => {
     const fetchMonitoringData = async () => {
+      if (!systemStatus) return
+
       try {
         // Fetch battery status
         const batteryResponse = await fetch("http://localhost:8000/batteries/status")
@@ -61,36 +63,7 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
     }
 
     fetchMonitoringData()
-    const interval = setInterval(fetchMonitoringData, 10000) // Update every 10 seconds
-    return () => clearInterval(interval)
-  }, [])
-
-  // Simulate historical data for charts
-  useEffect(() => {
-    if (systemStatus) {
-      const newDataPoint = {
-        time: new Date().toLocaleTimeString(),
-        timestamp: Date.now(),
-        totalGeneration: systemStatus.total_generation,
-        batteryPower: systemStatus.total_storage_power,
-        gridPower: systemStatus.total_grid_power,
-        windPower: systemStatus.devices
-          .filter((d: any) => d.type === "WindTurbine")
-          .reduce((sum: number, d: any) => sum + d.power_output, 0),
-        solarPower: systemStatus.devices
-          .filter((d: any) => d.type === "SolarPanel")
-          .reduce((sum: number, d: any) => sum + d.power_output, 0),
-        dieselPower: systemStatus.devices
-          .filter((d: any) => d.type === "DieselGenerator")
-          .reduce((sum: number, d: any) => sum + d.power_output, 0),
-      }
-
-      setHistoricalData((prev) => {
-        const updated = [...prev, newDataPoint]
-        return updated.slice(-20) // Keep last 20 data points
-      })
-    }
-  }, [systemStatus])
+  }, [systemStatus]) // Only fetch when systemStatus changes (step-based)
 
   if (!systemStatus) {
     return (
@@ -117,9 +90,9 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
 
   // Generation mix data for pie chart
   const generationMixData = [
-    { name: "Wind", value: totalWindPower, color: "#3b82f6" },
-    { name: "Solar", value: totalSolarPower, color: "#f59e0b" },
-    { name: "Diesel", value: totalDieselPower, color: "#ef4444" },
+    { name: "Wind", value: totalWindPower, color: "hsl(var(--chart-1))" },
+    { name: "Solar", value: totalSolarPower, color: "hsl(var(--chart-3))" },
+    { name: "Diesel", value: totalDieselPower, color: "hsl(var(--chart-4))" },
   ].filter((item) => item.value > 0)
 
   return (
@@ -127,9 +100,9 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Real-time Monitoring</h2>
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="gap-1">
-            <Activity className="h-3 w-3 animate-pulse" />
-            Live Data
+          <Badge variant="outline" className="gap-1 border-accent/50 text-accent">
+            <Activity className="h-3 w-3" />
+            Step-based Updates
           </Badge>
         </div>
       </div>
@@ -144,10 +117,10 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
 
         <TabsContent value="overview" className="space-y-6">
           {/* Real-time Power Flow Chart */}
-          <Card>
+          <Card className="border-accent/20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" />
+                <TrendingUp className="h-5 w-5 text-accent" />
                 Power Flow Timeline
               </CardTitle>
             </CardHeader>
@@ -156,7 +129,13 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={historicalData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                    <XAxis dataKey="time" stroke="#9ca3af" fontSize={12} />
+                    <XAxis
+                      dataKey="timestepHours"
+                      stroke="#9ca3af"
+                      fontSize={12}
+                      tickFormatter={(value) => `${value.toFixed(1)}h`}
+                      domain={["dataMin", "dataMax"]}
+                    />
                     <YAxis stroke="#9ca3af" fontSize={12} />
                     <Tooltip
                       contentStyle={{
@@ -164,22 +143,33 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                         border: "1px solid #374151",
                         borderRadius: "8px",
                       }}
+                      labelFormatter={(value) => `Time: ${value.toFixed(1)} hours`}
+                      formatter={(value: any, name: string) => [`${Number(value).toFixed(1)} kW`, name]}
                     />
                     <Line
                       type="monotone"
                       dataKey="totalGeneration"
-                      stroke="#3b82f6"
+                      stroke="hsl(var(--accent))"
                       strokeWidth={2}
                       name="Total Generation"
+                      dot={{ fill: "hsl(var(--accent))", strokeWidth: 2, r: 3 }}
                     />
                     <Line
                       type="monotone"
                       dataKey="batteryPower"
-                      stroke="#10b981"
+                      stroke="hsl(var(--chart-2))"
                       strokeWidth={2}
                       name="Battery Power"
+                      dot={{ fill: "hsl(var(--chart-2))", strokeWidth: 2, r: 3 }}
                     />
-                    <Line type="monotone" dataKey="gridPower" stroke="#f59e0b" strokeWidth={2} name="Grid Power" />
+                    <Line
+                      type="monotone"
+                      dataKey="gridPower"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      name="Grid Power"
+                      dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 3 }}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -188,10 +178,10 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
 
           {/* Generation Mix */}
           <div className="grid gap-6 md:grid-cols-2">
-            <Card>
+            <Card className="border-accent/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5 text-accent" />
+                  <Leaf className="h-5 w-5 text-accent" />
                   Generation Mix
                 </CardTitle>
               </CardHeader>
@@ -234,10 +224,10 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-accent/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-primary" />
+                  <Zap className="h-5 w-5 text-accent" />
                   System Alerts
                 </CardTitle>
               </CardHeader>
@@ -267,7 +257,7 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                   {systemStatus.total_generation > 0 &&
                     systemStatus.batteries.every((b: any) => b.soc_percent > 80) && (
                       <div className="flex items-center gap-2 p-2 rounded-lg bg-accent/10 border border-accent/20">
-                        <Activity className="h-4 w-4 text-accent" />
+                        <Leaf className="h-4 w-4 text-accent" />
                         <span className="text-sm text-accent">System operating optimally</span>
                       </div>
                     )}
@@ -279,7 +269,7 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
 
         <TabsContent value="generation" className="space-y-6">
           {/* Generation Sources Chart */}
-          <Card>
+          <Card className="border-accent/20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Activity className="h-5 w-5 text-accent" />
@@ -291,7 +281,13 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={historicalData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                    <XAxis dataKey="time" stroke="#9ca3af" fontSize={12} />
+                    <XAxis
+                      dataKey="timestepHours"
+                      stroke="#9ca3af"
+                      fontSize={12}
+                      tickFormatter={(value) => `${value.toFixed(1)}h`}
+                      domain={["dataMin", "dataMax"]}
+                    />
                     <YAxis stroke="#9ca3af" fontSize={12} />
                     <Tooltip
                       contentStyle={{
@@ -299,13 +295,15 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                         border: "1px solid #374151",
                         borderRadius: "8px",
                       }}
+                      labelFormatter={(value) => `Time: ${value.toFixed(1)} hours`}
+                      formatter={(value: any, name: string) => [`${Number(value).toFixed(1)} kW`, name]}
                     />
                     <Area
                       type="monotone"
                       dataKey="windPower"
                       stackId="1"
-                      stroke="#3b82f6"
-                      fill="#3b82f6"
+                      stroke="hsl(var(--chart-1))"
+                      fill="hsl(var(--chart-1))"
                       fillOpacity={0.6}
                       name="Wind"
                     />
@@ -313,8 +311,8 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                       type="monotone"
                       dataKey="solarPower"
                       stackId="1"
-                      stroke="#f59e0b"
-                      fill="#f59e0b"
+                      stroke="hsl(var(--chart-3))"
+                      fill="hsl(var(--chart-3))"
                       fillOpacity={0.6}
                       name="Solar"
                     />
@@ -322,8 +320,8 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                       type="monotone"
                       dataKey="dieselPower"
                       stackId="1"
-                      stroke="#ef4444"
-                      fill="#ef4444"
+                      stroke="hsl(var(--chart-4))"
+                      fill="hsl(var(--chart-4))"
                       fillOpacity={0.6}
                       name="Diesel"
                     />
@@ -335,7 +333,7 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
 
           {/* Individual Generator Performance */}
           <div className="grid gap-6 md:grid-cols-3">
-            <Card>
+            <Card className="border-accent/20">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-base">Wind Turbines</CardTitle>
                 <Wind className="h-4 w-4 text-chart-1" />
@@ -356,7 +354,7 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-accent/20">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-base">Solar Panels</CardTitle>
                 <Sun className="h-4 w-4 text-chart-3" />
@@ -377,7 +375,7 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-accent/20">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-base">Diesel Generators</CardTitle>
                 <Fuel className="h-4 w-4 text-chart-4" />
@@ -404,7 +402,7 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
           {/* Battery Status Overview */}
           <div className="grid gap-6 md:grid-cols-2">
             {batteryStatus.map((battery: any, index: number) => (
-              <Card key={index}>
+              <Card key={index} className="border-accent/20">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-base">{battery.name}</CardTitle>
                   <Battery className="h-4 w-4 text-chart-2" />
@@ -464,10 +462,10 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
 
           {/* Grid Connections */}
           {gridStatus.length > 0 && (
-            <Card>
+            <Card className="border-accent/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-primary" />
+                  <Zap className="h-5 w-5 text-accent" />
                   Grid Connections
                 </CardTitle>
               </CardHeader>
@@ -506,7 +504,7 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
         <TabsContent value="performance" className="space-y-6">
           {/* Diesel Performance */}
           {dieselStatus && (
-            <Card>
+            <Card className="border-accent/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Fuel className="h-5 w-5 text-chart-4" />
@@ -563,7 +561,7 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
           )}
 
           {/* System Efficiency Metrics */}
-          <Card>
+          <Card className="border-accent/20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-accent" />

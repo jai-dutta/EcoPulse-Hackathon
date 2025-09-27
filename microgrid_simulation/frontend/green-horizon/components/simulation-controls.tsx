@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,13 +8,16 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
-import { Play, Pause, RotateCcw, Zap, Fuel, Settings, TrendingUp, Activity } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import { Play, Pause, RotateCcw, Zap, Fuel, Settings, TrendingUp, Activity, Timer, Square } from "lucide-react"
+import { useMonitoring } from "@/app/page"
 
 interface SimulationControlsProps {
   onUpdate: () => void
 }
 
 export function SimulationControls({ onUpdate }: SimulationControlsProps) {
+  const { onStepUpdate } = useMonitoring()
   const [isLoading, setIsLoading] = useState(false)
   const [demandKw, setDemandKw] = useState(100)
   const [timestepHours, setTimestepHours] = useState(1)
@@ -24,31 +27,34 @@ export function SimulationControls({ onUpdate }: SimulationControlsProps) {
   const [generatorSetpoint, setGeneratorSetpoint] = useState(0)
   const [simulationResults, setSimulationResults] = useState<any>(null)
 
-  const runSimulationStep = async () => {
-    setIsLoading(true)
-    try {
-      const response = await fetch("http://localhost:8000/simulate/step", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          demand_kw: demandKw,
-          timestep_hours: timestepHours,
-        }),
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setSimulationResults(data.simulation_results)
-        onUpdate()
-      }
-    } catch (error) {
-      console.error("Failed to run simulation step:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const [isAutoRunning, setIsAutoRunning] = useState(false)
+  const [autoInterval, setAutoInterval] = useState(5) // seconds
+  const [useRealisticDemand, setUseRealisticDemand] = useState(false)
+  const [autoStepCount, setAutoStepCount] = useState(0)
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
-  const runRealisticSimulation = async () => {
-    setIsLoading(true)
+  useEffect(() => {
+    if (isAutoRunning) {
+      intervalRef.current = setInterval(() => {
+          runRealisticSimulation(true)
+      }, autoInterval * 1000)
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
+  }, [isAutoRunning, autoInterval, useRealisticDemand, demandKw, timestepHours, totalDailyKwh])
+
+
+  const runRealisticSimulation = async (isAutoStep = false) => {
+    if (!isAutoStep) setIsLoading(true)
     try {
       const response = await fetch(
         `http://localhost:8000/simulate/realistic?total_daily_kwh=${totalDailyKwh}&timestep_hours=${timestepHours}`,
@@ -58,13 +64,36 @@ export function SimulationControls({ onUpdate }: SimulationControlsProps) {
         const data = await response.json()
         setSimulationResults(data.simulation_results)
         setDemandKw(data.calculated_demand)
+        if (isAutoStep) {
+          setAutoStepCount((prev) => prev + 1)
+        }
+        onStepUpdate()
         onUpdate()
       }
     } catch (error) {
       console.error("Failed to run realistic simulation:", error)
+      if (isAutoStep) {
+        // Stop auto-running on error
+        setIsAutoRunning(false)
+      }
     } finally {
-      setIsLoading(false)
+      if (!isAutoStep) setIsLoading(false)
     }
+  }
+
+  const toggleAutoTimestep = () => {
+    if (isAutoRunning) {
+      setIsAutoRunning(false)
+      setAutoStepCount(0)
+    } else {
+      setIsAutoRunning(true)
+      setAutoStepCount(0)
+    }
+  }
+
+  const resetAutoTimestep = () => {
+    setIsAutoRunning(false)
+    setAutoStepCount(0)
   }
 
   const setDieselControlStrategy = async () => {
@@ -107,59 +136,102 @@ export function SimulationControls({ onUpdate }: SimulationControlsProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold">Simulation Controls</h2>
-        <Badge variant="outline" className="gap-1">
-          <Activity className="h-3 w-3" />
-          Simulation Engine
-        </Badge>
+        <div className="flex items-center gap-2">
+          {isAutoRunning && (
+            <Badge variant="default" className="gap-1 bg-accent text-accent-foreground animate-pulse">
+              <Timer className="h-3 w-3" />
+              Auto Running ({autoStepCount} steps)
+            </Badge>
+          )}
+          <Badge variant="outline" className="gap-1 border-accent/50 text-accent">
+            <Activity className="h-3 w-3" />
+            Step-based Engine
+          </Badge>
+        </div>
       </div>
 
-      {/* Manual Simulation Controls */}
-      <Card>
+      <Card className="border-accent/20 bg-gradient-to-r from-accent/5 to-transparent">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Play className="h-5 w-5 text-primary" />
-            Manual Simulation Step
+            <Timer className="h-5 w-5 text-accent" />
+            Auto-Timestep Control
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <div>
-              <Label htmlFor="demand">Demand (kW)</Label>
+              <Label htmlFor="autoInterval">Interval (seconds)</Label>
               <Input
-                id="demand"
+                id="autoInterval"
                 type="number"
-                min="0"
-                step="0.1"
-                value={demandKw}
-                onChange={(e) => setDemandKw(Number.parseFloat(e.target.value))}
+                min="1"
+                max="60"
+                step="1"
+                value={autoInterval}
+                onChange={(e) => setAutoInterval(Number.parseInt(e.target.value))}
                 className="mt-1"
+                disabled={isAutoRunning}
               />
-              <p className="text-xs text-muted-foreground mt-1">Specify the power demand for this simulation step</p>
+              <p className="text-xs text-muted-foreground mt-1">Time between automatic steps</p>
             </div>
-            <div>
-              <Label htmlFor="timestep">Time Step (hours)</Label>
-              <Input
-                id="timestep"
-                type="number"
-                min="0.1"
-                max="24"
-                step="0.1"
-                value={timestepHours}
-                onChange={(e) => setTimestepHours(Number.parseFloat(e.target.value))}
-                className="mt-1"
+            <div className="flex items-center space-x-2 pt-6">
+              <Switch
+                id="useRealistic"
+                checked={useRealisticDemand}
+                onCheckedChange={setUseRealisticDemand}
+                disabled={isAutoRunning}
               />
-              <p className="text-xs text-muted-foreground mt-1">Duration of the simulation step</p>
+              <Label htmlFor="useRealistic" className="text-sm">
+                Use Realistic Demand
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2 pt-6">
+              <Badge variant="secondary" className="text-xs">
+                {autoStepCount} steps completed
+              </Badge>
             </div>
           </div>
-          <Button onClick={runSimulationStep} disabled={isLoading} className="gap-2 w-full">
-            <Play className="h-4 w-4" />
-            Run Manual Simulation Step
-          </Button>
+
+          <div className="flex gap-2">
+            <Button
+              onClick={toggleAutoTimestep}
+              disabled={isLoading}
+              className={`gap-2 flex-1 ${
+                isAutoRunning ? "bg-destructive hover:bg-destructive/90" : "bg-accent hover:bg-accent/90"
+              }`}
+            >
+              {isAutoRunning ? (
+                <>
+                  <Square className="h-4 w-4" />
+                  Stop Auto-Timestep
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4" />
+                  Start Auto-Timestep
+                </>
+              )}
+            </Button>
+            <Button onClick={resetAutoTimestep} disabled={isLoading} variant="outline" className="gap-2 bg-transparent">
+              <RotateCcw className="h-4 w-4" />
+              Reset
+            </Button>
+          </div>
+
+          <div className="text-xs text-muted-foreground p-3 bg-muted/50 rounded-lg">
+            <p className="font-medium mb-1">Auto-Timestep Mode:</p>
+            <p>
+              {useRealisticDemand
+                ? `Running realistic demand simulation every ${autoInterval}s with ${totalDailyKwh} kWh daily consumption`
+                : `Running manual simulation every ${autoInterval}s with ${demandKw} kW demand`}
+            </p>
+          </div>
         </CardContent>
       </Card>
 
+
       {/* Realistic Simulation Controls */}
-      <Card>
+      <Card className="border-accent/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-accent" />
@@ -199,9 +271,9 @@ export function SimulationControls({ onUpdate }: SimulationControlsProps) {
             </div>
           </div>
           <Button
-            onClick={runRealisticSimulation}
-            disabled={isLoading}
-            className="gap-2 w-full bg-transparent"
+            onClick={() => runRealisticSimulation(false)}
+            disabled={isLoading || isAutoRunning}
+            className="gap-2 w-full bg-transparent border-accent/50 text-accent hover:bg-accent/10"
             variant="outline"
           >
             <TrendingUp className="h-4 w-4" />
@@ -380,6 +452,7 @@ export function SimulationControls({ onUpdate }: SimulationControlsProps) {
                 setTimestepHours(1)
               }}
               className="gap-2"
+              disabled={isAutoRunning}
             >
               <Pause className="h-4 w-4" />
               Low Demand Test
@@ -391,6 +464,7 @@ export function SimulationControls({ onUpdate }: SimulationControlsProps) {
                 setTimestepHours(1)
               }}
               className="gap-2"
+              disabled={isAutoRunning}
             >
               <TrendingUp className="h-4 w-4" />
               High Demand Test
@@ -402,6 +476,7 @@ export function SimulationControls({ onUpdate }: SimulationControlsProps) {
                 setTimestepHours(1)
                 setTotalDailyKwh(150)
                 setSimulationResults(null)
+                resetAutoTimestep()
               }}
               className="gap-2"
             >

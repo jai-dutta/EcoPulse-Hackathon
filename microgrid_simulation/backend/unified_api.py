@@ -642,7 +642,6 @@ def run():
     """Run the unified API server"""
     import uvicorn
     print("Starting Unified Microgrid Management API on http://localhost:8000")
-    print("API Documentation available at: http://localhost:8000/docs")
     uvicorn.run(app, host="0.0.0.0", port=8000)
 
 if __name__ == "__main__":

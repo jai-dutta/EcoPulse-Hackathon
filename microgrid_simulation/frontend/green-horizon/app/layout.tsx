@@ -9,6 +9,7 @@ import "./globals.css"
 export const metadata: Metadata = {
   title: "Microgrid Management System",
   description: "Professional energy management dashboard for renewable microgrids",
+  generator: "v0.app",
 }
 
 export default function RootLayout({
