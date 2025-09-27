@@ -313,7 +313,7 @@ def simulate_realistic_step(total_daily_kwh: float = Query(default=150.0), times
 
 def run_simulation_for_duration(sim_microgrid, sim_environment, duration_days: int):
     """Helper to run a simulation for a given duration and return metrics."""
-    total_diesel_usage_l, total_grid_import_kwh, total_grid_export_kwh, total_cost = 0, 0, 0, 0
+    total_diesel_usage_l, total_grid_import_kwh, total_cost, total_renewable_gen = 0, 0, 0, 0
     
     CO2_KG_PER_LITRE_DIESEL = 2.68
     CO2_KG_PER_KWH_GRID = 0.43
@@ -328,20 +328,18 @@ def run_simulation_for_duration(sim_microgrid, sim_environment, duration_days: i
         results = sim_microgrid.step(demand_kw=demand_kw, timestep_hours=1.0)
         sim_environment.step(1.0)
         
-        diesel_usage = results.get("diesel_usage_lph", 0)
-        total_diesel_usage_l += diesel_usage
-        
+        total_diesel_usage_l += results.get("diesel_usage_lph", 0)
         grid_power = results.get("grid_power_kw", 0)
-        cost_for_step = diesel_usage * DIESEL_PRICE_PER_LITRE
         
+        cost_for_step = (results.get("diesel_usage_lph", 0) * DIESEL_PRICE_PER_LITRE)
         if grid_power > 0:
             total_grid_import_kwh += grid_power
             cost_for_step += grid_power * import_price
         else:
-            total_grid_export_kwh += abs(grid_power)
             cost_for_step -= abs(grid_power) * export_price
-        
         total_cost += cost_for_step
+
+        total_renewable_gen += results.get("renewable_generation_kw", 0)
 
     co2_emissions = (total_diesel_usage_l * CO2_KG_PER_LITRE_DIESEL) + (total_grid_import_kwh * CO2_KG_PER_KWH_GRID)
     
@@ -350,46 +348,40 @@ def run_simulation_for_duration(sim_microgrid, sim_environment, duration_days: i
         "co2_emissions_kg": co2_emissions,
         "diesel_usage_l": total_diesel_usage_l,
         "grid_import_kwh": total_grid_import_kwh,
+        "renewable_generation_kwh": total_renewable_gen
     }
 
 @app.post("/analyze/scenario")
 def analyze_scenario(request: AnalysisRequest):
-    """Run a comparative simulation for a specified duration with and without a renewable device."""
-    device_to_exclude = next((d for d in microgrid.devices if d.name == request.exclude_device_name), None)
-    if not device_to_exclude:
-        raise HTTPException(status_code=404, detail=f"Device '{request.exclude_device_name}' not found.")
-    if not isinstance(device_to_exclude, (WindTurbine, SolarPanel)):
-        raise HTTPException(status_code=400, detail="Analysis can only be run on WindTurbine or SolarPanel devices.")
-
-    microgrid_with = copy.deepcopy(microgrid)
-    env_with = copy.deepcopy(environment)
-    results_with = run_simulation_for_duration(microgrid_with, env_with, request.duration_days)
+    """Runs a twin simulation: one with renewables, one without (baseline)."""
     
-    microgrid_temp = copy.deepcopy(microgrid)
-    env_temp = copy.deepcopy(environment)
-    total_renewable_gen = 0
-    for _ in range(request.duration_days * 24):
-        dev = next((d for d in microgrid_temp.devices if d.name == request.exclude_device_name), None)
-        if dev: total_renewable_gen += dev.get_power_output()
-        microgrid_temp.step(get_realistic_demand(env_temp.current_time, 1500), 1.0)
-        env_temp.step(1.0)
-    results_with["renewable_generation_kwh"] = total_renewable_gen
+    # --- Scenario 1: Current system with renewables ---
+    microgrid_with_renewables = copy.deepcopy(microgrid)
+    env_with_renewables = copy.deepcopy(environment)
+    results_with_renewables = run_simulation_for_duration(microgrid_with_renewables, env_with_renewables, request.duration_days)
 
-    microgrid_without = copy.deepcopy(microgrid)
-    env_without = copy.deepcopy(environment)
-    device_to_remove = next((d for d in microgrid_without.devices if d.name == request.exclude_device_name), None)
-    if device_to_remove: microgrid_without.devices.remove(device_to_remove)
-    results_without = run_simulation_for_duration(microgrid_without, env_without, request.duration_days)
-    results_without["renewable_generation_kwh"] = 0
-
-    cost_saved = results_without["total_cost"] - results_with["total_cost"]
-    co2_saved_kg = results_without["co2_emissions_kg"] - results_with["co2_emissions_kg"]
-    cost_saving_percent = (cost_saved / results_without["total_cost"]) * 100 if results_without["total_cost"] != 0 else 0
-    co2_saving_percent = (co2_saved_kg / results_without["co2_emissions_kg"]) * 100 if results_without["co2_emissions_kg"] != 0 else 0
+    # --- Scenario 2: Baseline system without any renewables ---
+    microgrid_without_renewables = copy.deepcopy(microgrid)
+    env_without_renewables = copy.deepcopy(environment)
+    
+    # Remove all wind and solar devices for the baseline scenario
+    microgrid_without_renewables.devices = [
+        d for d in microgrid_without_renewables.devices 
+        if not isinstance(d, (WindTurbine, SolarPanel))
+    ]
+        
+    results_without_renewables = run_simulation_for_duration(microgrid_without_renewables, env_without_renewables, request.duration_days)
+    
+    # --- Calculate savings ---
+    cost_saved = results_without_renewables["total_cost"] - results_with_renewables["total_cost"]
+    co2_saved_kg = results_without_renewables["co2_emissions_kg"] - results_with_renewables["co2_emissions_kg"]
+    
+    cost_saving_percent = (cost_saved / results_without_renewables["total_cost"]) * 100 if results_without_renewables["total_cost"] != 0 else 0
+    co2_saving_percent = (co2_saved_kg / results_without_renewables["co2_emissions_kg"]) * 100 if results_without_renewables["co2_emissions_kg"] != 0 else 0
 
     return {
-        "with_renewable": results_with,
-        "without_renewable": results_without,
+        "with_renewables": results_with_renewables,
+        "without_renewables": results_without_renewables,
         "savings": {
             "cost_saved": cost_saved,
             "co2_saved_kg": co2_saved_kg,
