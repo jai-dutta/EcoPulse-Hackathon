@@ -119,22 +119,21 @@ class Environment:
         current_month = self.current_time.month
         current_hour = self.current_time.hour
 
+        # Increased monthly average speeds for an industrial/mine site
         monthly_avg_speed = {
-            1: 5.5,  2: 5.0,  3: 5.2,  4: 4.8, 5: 4.5,  6: 4.0,
-            7: 4.2,  8: 4.8,  9: 5.0, 10: 5.3, 11: 5.6, 12: 5.8
+            1: 7.0,  2: 6.8,  3: 6.9,  4: 6.5, 5: 6.2,  6: 6.0,
+            7: 6.2,  8: 6.5,  9: 6.8, 10: 7.1, 11: 7.3, 12: 7.5
         }[current_month]
 
-        diurnal_boost = 1.2 if 12 <= current_hour <= 18 else 0.8
+        # Reduced diurnal variation for a steadier wind profile
+        diurnal_boost = 1.1 if 10 <= current_hour <= 19 else 0.9
         mean_speed = monthly_avg_speed * diurnal_boost
-        wind_speed = max(0, random.normalvariate(mean_speed, 1.5))
+        
+        # Reduced standard deviation for less randomness (steadier wind)
+        wind_speed = max(0, random.normalvariate(mean_speed, 0.8))
 
-        if current_month in [12, 1, 2]:  # Summer — SW sea breeze
-            wind_direction = random.normalvariate(230, 20)
-        elif current_month in [6, 7, 8]:  # Winter — variable
-            wind_direction = random.uniform(0, 360)
-        else:
-            wind_direction = random.normalvariate(200, 60)
-        wind_direction %= 360
+        wind_direction = random.normalvariate(220, 45)
+            
 
         return round(wind_speed, 1), round(wind_direction)
 

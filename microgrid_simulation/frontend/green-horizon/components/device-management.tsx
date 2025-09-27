@@ -27,26 +27,19 @@ export function DeviceManagement({ systemStatus, onUpdate }: DeviceManagementPro
     const formData = new FormData(event.currentTarget)
     const params: { [key: string]: any } = {}
     formData.forEach((value, key) => {
-      params[key] = value
+      // Don't include empty strings for optional fields
+      if (value !== "") {
+        params[key] = value
+      }
     })
 
-    // Coerce specific fields to numbers
+    // Coerce specific fields to numbers where they exist
     const numberFields = [
-      "rated_power",
-      "direction",
-      "cut_in_speed",
-      "rated_speed",
-      "cut_out_speed",
-      "temp_coefficient",
-      "stc_temp",
-      "capacity_kwh",
-      "max_power_kw",
-      "efficiency",
-      "initial_charge",
-      "import_price",
-      "export_price",
+      "rated_power", "direction", "cut_in_speed", "rated_speed", "cut_out_speed",
+      "temp_coefficient", "stc_temp", "capacity_kwh", "max_power_kw",
+      "efficiency", "initial_charge", "import_price", "export_price",
       "diesel_usage_litre_per_kw",
-    ]
+    ];
     for (const field of numberFields) {
       if (params[field]) {
         const num = parseFloat(params[field])
@@ -55,17 +48,16 @@ export function DeviceManagement({ systemStatus, onUpdate }: DeviceManagementPro
         }
       }
     }
-
-    const payload = {
-      type: deviceType,
-      params: params,
-    }
+    
+    // Construct the correct endpoint based on the selected device type
+    const endpoint = `http://localhost:8000/add/${deviceType.toLowerCase()}`
 
     try {
-      const response = await fetch("http://localhost:8000/device", {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        // Send the parameters object directly as the body
+        body: JSON.stringify(params),
       })
 
       if (response.ok) {
@@ -87,7 +79,7 @@ export function DeviceManagement({ systemStatus, onUpdate }: DeviceManagementPro
 
   const removeDevice = async (deviceName: string) => {
     try {
-      const response = await fetch(`http://localhost:8000/device/${deviceName}`, {
+      const response = await fetch(`http://localhost:8000/remove/${deviceName}`, {
         method: "DELETE",
       })
       if (response.ok) {
@@ -104,9 +96,9 @@ export function DeviceManagement({ systemStatus, onUpdate }: DeviceManagementPro
 
   const windTurbines = systemStatus.devices.filter((d: any) => d.type === "WindTurbine")
   const solarPanels = systemStatus.devices.filter((d: any) => d.type === "SolarPanel")
-  const batteries = systemStatus.batteries
+  const batteries = systemStatus.batteries || []
   const dieselGens = systemStatus.devices.filter((d: any) => d.type === "DieselGenerator")
-  const gridConnections = systemStatus.grid_connections
+  const gridConnections = systemStatus.grid_connections || []
 
   return (
     <div className="space-y-6">

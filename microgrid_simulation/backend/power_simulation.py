@@ -123,7 +123,7 @@ class Battery(PowerDevice):
         self.max_power_kw = max_power_kw
         # Account for round-trip efficiency
         self.one_way_efficiency = math.sqrt(efficiency) # Split losses between charge/discharge
-        self.state_of_charge = initial_charge * capacity_kwh  # kWh
+        self.state_of_charge = initial_charge * self.capacity_kwh  # kWh
 
     def update_output(self, environment, demand: float = 0.0, timestep_hours: float = 1.0):
         if demand > 0:  # Discharge to meet demand
@@ -169,7 +169,7 @@ class MicrogridManager:
         self.diesel_setpoints[generator_name] = setpoint_kw
 
     def step(self, demand_kw: float, timestep_hours: float = 1.0) -> dict:
-        # 1. Separate devices by type
+        # 1. Separate devices by type for easier management
         renewable_devices = []
         diesel_generators = []
         batteries = [d for d in self.devices if isinstance(d, Battery)]
@@ -179,55 +179,48 @@ class MicrogridManager:
             if isinstance(d, DieselGenerator):
                 diesel_generators.append(d)
             elif isinstance(d, (WindTurbine, SolarPanel)):
-                # Update environment-driven devices
                 d.update_output(self.environment)
                 renewable_devices.append(d)
-            # Batteries and grids will be handled separately
 
-        # 2. Total renewable generation
+        # 2. Calculate total renewable generation
         renewable_generation = sum(d.get_power_output() for d in renewable_devices)
+        
+        # 3. Calculate demand remaining after renewables
+        net_demand_after_renewables = demand_kw - renewable_generation
+        
+        # 4. Determine required diesel generation based on strategy
+        diesel_generation = self._control_diesel_generators(
+            diesel_generators, net_demand_after_renewables, timestep_hours
+        )
+        
+        # 5. Calculate total generation and the final net demand for the batteries
+        total_generation = renewable_generation + diesel_generation
+        net_demand_for_batteries = demand_kw - total_generation
 
-        # 3. Net demand after renewables
-        net_demand = demand_kw - renewable_generation
-
-        # 4. Battery response (aggregate all batteries)
+        # 6. Battery response: Charge with surplus or discharge to meet shortfall
         total_battery_power = 0.0
-        remaining_demand_for_batteries = net_demand
-
-        # Distribute demand among batteries proportionally to their capacity
-        total_battery_capacity = sum(bat.capacity_kwh for bat in batteries) if batteries else 1
+        total_battery_capacity = sum(bat.capacity_kwh for bat in batteries) or 1
         for battery in batteries:
-            # Calculate this battery's share of the demand based on its capacity
-            battery_share = (battery.capacity_kwh / total_battery_capacity) * remaining_demand_for_batteries
+            battery_share = (battery.capacity_kwh / total_battery_capacity) * net_demand_for_batteries
             battery.update_output(self.environment, battery_share, timestep_hours)
             total_battery_power += battery.get_power_output()
-
-        # 5. Net demand after batteries
-        net_demand_after_batteries = net_demand - total_battery_power
-
-        # 6. Diesel generator control
-        diesel_generation = self._control_diesel_generators(
-            diesel_generators, net_demand_after_batteries, timestep_hours
-        )
-
-        # 7. Final net demand after diesel
-        final_net_demand = net_demand_after_batteries - diesel_generation
-
-        # 8. Grid response (distribute among grid connections)
+            
+        # 7. Final net demand after battery response
+        final_net_demand = net_demand_for_batteries - total_battery_power
+        
+        # 8. Grid response: import or export any remaining balance
         total_grid_power = 0.0
         if grid_connections:
-            # Simple distribution: split equally among grids
             grid_share = final_net_demand / len(grid_connections)
             for grid in grid_connections:
                 grid.update_output(self.environment, grid_share)
                 total_grid_power += grid.get_power_output()
 
-        # 9. Calculate costs and usage
+        # 9. Calculate costs and usage for this step
         total_diesel_usage = sum(gen.get_diesel_usage() for gen in diesel_generators)
         total_grid_cost = sum(grid.get_cost(timestep_hours) for grid in grid_connections)
 
         # 10. Record results
-        total_generation = renewable_generation + diesel_generation
         results = {
             "Time": self.environment.current_time.strftime("%Y-%m-%d %H:%M"),
             "Demand (kW)": demand_kw,
@@ -266,7 +259,7 @@ class MicrogridManager:
             if batteries:
                 total_soc = sum(bat.get_state_of_charge() for bat in batteries)
                 total_capacity = sum(bat.capacity_kwh for bat in batteries)
-                avg_soc_percent = (total_soc / total_capacity) * 100
+                avg_soc_percent = (total_soc / total_capacity) * 100 if total_capacity > 0 else 0
             else:
                 avg_soc_percent = 0
 
@@ -284,17 +277,9 @@ class MicrogridManager:
                     else:
                         diesel_gen.update_output(self.environment, 0.0)
             else:
-                # Normal demand following
-                remaining_demand = max(0, net_demand)
+                # If batteries are sufficiently charged, DGs do not run.
                 for diesel_gen in diesel_generators:
-                    if remaining_demand > 0:
-                        setpoint = min(remaining_demand, diesel_gen.rated_power)
-                        diesel_gen.update_output(self.environment, setpoint)
-                        diesel_output = diesel_gen.get_power_output()
-                        diesel_generation += diesel_output
-                        remaining_demand -= diesel_output
-                    else:
-                        diesel_gen.update_output(self.environment, 0.0)
+                    diesel_gen.update_output(self.environment, 0.0)
 
         elif self.diesel_strategy == "manual":
             for diesel_gen in diesel_generators:
@@ -307,20 +292,33 @@ class MicrogridManager:
 
 def get_realistic_demand(current_time: datetime, total_daily_kwh: float) -> float:
     """
-    Returns a plausible kW demand for the given hour such that the total energy
-    matches total_daily_kwh, with 80% of energy during day (6-22) and 20% during night (22-6).
+    Generates a plausible industrial demand profile for a 24/7 operation.
+    The profile is scaled to match the total_daily_kwh.
     """
-    hour = current_time.hour
+    hour = current_time.hour + current_time.minute / 60
 
-    # Determine day/night weighting
-    if 6 <= hour < 22:
-        weight = 0.8 / 16  # 16 day hours share 80%
-    else:
-        weight = 0.2 / 8   # 8 night hours share 20%
+    # Base profile for an industrial site: high, constant load with minor dips
+    # during shift changes or maintenance periods.
+    base_profile = [
+        0.9, 0.85, 0.85, 0.85, 0.9, 0.95, 1.0, 1.0, 1.0, 1.0, 0.95, 0.9, # 00:00 - 11:59
+        0.9, 0.95, 1.0, 1.0, 1.0, 0.95, 0.9, 0.85, 0.85, 0.85, 0.9, 0.95 # 12:00 - 23:59
+    ]
 
-    demand = weight * total_daily_kwh
-    # Add some random noise
-    demand += random.uniform(-0.9, 0.9) * demand
+    # Interpolate between hours
+    hour_floor = int(hour)
+    hour_ceil = (hour_floor + 1) % 24
+    fraction = hour - hour_floor
+    
+    base_demand = base_profile[hour_floor] * (1 - fraction) + base_profile[hour_ceil] * fraction
 
-    return max(0.1, demand)  # ensure nonzero
-
+    # The average power (kW) required to meet the daily energy target (kWh)
+    average_power = total_daily_kwh / 24.0
+    
+    # Scale the base demand to meet the average power requirement
+    demand = base_demand * average_power
+    
+    # Add minor random noise
+    noise = random.uniform(-0.05, 0.05) * demand
+    final_demand = demand + noise
+    
+    return max(average_power * 0.7, final_demand) # Ensure a minimum load

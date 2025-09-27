@@ -4,11 +4,12 @@ import { useState, useEffect} from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Battery, Sun, Wind, Zap, Fuel, TrendingUp, TrendingDown, Activity, Leaf } from "lucide-react"
+import { Battery, Sun, Wind, Zap, Fuel, TrendingUp, TrendingDown, Activity, Leaf, User } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts"
 import { useMonitoring } from "@/app/page"
 import { useSimulation } from "@/app/context/SimulationContext"
 import { SimulationControls } from "./simulation-controls"
+import { DieselStrategyControl } from "./diesel-strategy-control"
 
 export function DeviceManagementWrapper() {
   const { refresh } = useSimulation()
@@ -35,6 +36,7 @@ interface SystemOverviewProps {
 
 export function SystemOverview({ systemStatus }: SystemOverviewProps) {
   const { historicalData } = useMonitoring()
+  const { demandKw, refresh } = useSimulation()
 
   if (!systemStatus) {
     return (
@@ -113,28 +115,31 @@ export function SystemOverview({ systemStatus }: SystemOverviewProps) {
                       formatter={(value: any, name: string) => [`${Number(value).toFixed(1)} kW`, name]}
                     />
                     <Line
+                      isAnimationActive={false}
                       type="monotone"
                       dataKey="totalGeneration"
                       stroke="var(--accent)"
                       strokeWidth={2}
                       name="Total Generation"
-                      dot={{ fill: "var(--accent)", strokeWidth: 2, r: 3 }}
+                      dot={false}
                     />
                     <Line
+                      isAnimationActive={false}
                       type="monotone"
                       dataKey="windPower"
                       stroke="var(--chart-1)"
                       strokeWidth={2}
                       name="Wind Power"
-                      dot={{ fill: "var(--chart-1)", strokeWidth: 2, r: 3 }}
+                      dot={false}
                     />
                     <Line
+                    isAnimationActive={false}
                       type="monotone"
                       dataKey="solarPower"
                       stroke="var(--chart-3)"
                       strokeWidth={2}
                       name="Solar Power"
-                      dot={{ fill: "var(--chart-3)", strokeWidth: 2, r: 3 }}
+                      dot={false}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -163,6 +168,7 @@ export function SystemOverview({ systemStatus }: SystemOverviewProps) {
                     />
                     <YAxis stroke="#9ca3af" fontSize={12} />
                     <Tooltip
+                    
                       contentStyle={{
                         backgroundColor: "#1f2937",
                         border: "1px solid #374151",
@@ -175,6 +181,7 @@ export function SystemOverview({ systemStatus }: SystemOverviewProps) {
                       ]}
                     />
                     <Area
+                    isAnimationActive={false}
                       type="monotone"
                       dataKey="renewableRatio"
                       stroke="var(--accent)"
@@ -183,6 +190,7 @@ export function SystemOverview({ systemStatus }: SystemOverviewProps) {
                       name="Renewable %"
                     />
                     <Area
+                    isAnimationActive={false}
                       type="monotone"
                       dataKey="batterySOC"
                       stroke="var(--chart-2)"
@@ -199,7 +207,18 @@ export function SystemOverview({ systemStatus }: SystemOverviewProps) {
       )}
 
       {/* Key Metrics */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
+        <Card className="border-accent/20">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Demand</CardTitle>
+            <User className="h-4 w-4 text-accent" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-accent">{demandKw.toFixed(1)} kW</div>
+            <p className="text-xs text-muted-foreground">Current site consumption</p>
+          </CardContent>
+        </Card>
+        
         <Card className="border-accent/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Generation</CardTitle>
@@ -267,8 +286,8 @@ export function SystemOverview({ systemStatus }: SystemOverviewProps) {
         </Card>
       </div>
 
-      {/* Generation Breakdown */}
-      <div className="grid gap-6 md:grid-cols-3">
+      {/* Generation Breakdown with Diesel Strategy Control */}
+      <div className="grid gap-6 md:grid-cols-4">
         <Card className="border-chart-1/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Wind Power</CardTitle>
@@ -337,6 +356,12 @@ export function SystemOverview({ systemStatus }: SystemOverviewProps) {
             </div>
           </CardContent>
         </Card>
+
+        {/* New Diesel Strategy Control */}
+        <DieselStrategyControl 
+          currentStrategy={systemStatus.diesel_strategy}
+          onStrategyChange={refresh}
+        />
       </div>
 
       {/* System Status Card */}

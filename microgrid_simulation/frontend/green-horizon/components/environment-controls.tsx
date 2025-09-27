@@ -121,7 +121,7 @@ export function EnvironmentControls({ environment, onUpdate }: EnvironmentContro
               <Cloud className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="text-sm text-muted-foreground">Cloud Cover</p>
-                <p className="font-medium">{environment.cloud_cover}/9</p>
+                <p className="font-medium">{Math.round(environment.cloud_cover)}/9</p>
               </div>
             </div>
           </div>

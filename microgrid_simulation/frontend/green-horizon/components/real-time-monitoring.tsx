@@ -23,7 +23,6 @@ import { Battery, Fuel, Sun, Wind, Zap, Activity, TrendingUp, TrendingDown, Aler
 import { useMonitoring } from "@/app/page"
 import { useSimulation } from "@/app/context/SimulationContext"
 import { SimulationControls } from "./simulation-controls"
-
 export function DeviceManagementWrapper() {
   const { refresh } = useSimulation()
 
@@ -168,7 +167,7 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
           </CardContent>
         </Card>
       )}
-
+      
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">System Overview</TabsTrigger>
@@ -209,6 +208,7 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                       formatter={(value: any, name: string) => [`${Number(value).toFixed(1)} kW`, name]}
                     />
                     <Line
+                    isAnimationActive={false}
                       type="monotone"
                       dataKey="totalGeneration"
                       stroke="var(--accent)"
@@ -217,6 +217,7 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                       dot={{ fill: "var(--accent)", strokeWidth: 2, r: 3 }}
                     />
                     <Line
+                    isAnimationActive={false}
                       type="monotone"
                       dataKey="batteryPower"
                       stroke="var(--chart-2)"
@@ -225,6 +226,7 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                       dot={{ fill: "var(--chart-2)", strokeWidth: 2, r: 3 }}
                     />
                     <Line
+                    isAnimationActive={false}
                       type="monotone"
                       dataKey="gridPower"
                       stroke="var(--primary)"
@@ -259,6 +261,7 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                         outerRadius={80}
                         paddingAngle={5}
                         dataKey="value"
+                        isAnimationActive={false}
                       >
                         {generationMixData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
@@ -361,6 +364,7 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                       formatter={(value: any, name: string) => [`${Number(value).toFixed(1)} kW`, name]}
                     />
                     <Area
+                     isAnimationActive={false}
                       type="monotone"
                       dataKey="windPower"
                       stackId="1"
@@ -370,6 +374,7 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                       name="Wind"
                     />
                     <Area
+                     isAnimationActive={false}
                       type="monotone"
                       dataKey="solarPower"
                       stackId="1"
@@ -379,6 +384,7 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                       name="Solar"
                     />
                     <Area
+                     isAnimationActive={false}
                       type="monotone"
                       dataKey="dieselPower"
                       stackId="1"

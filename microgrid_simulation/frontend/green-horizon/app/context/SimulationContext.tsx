@@ -27,7 +27,7 @@ const SimulationContext = createContext<SimulationContextType | undefined>(undef
 export function SimulationProvider({ children }: { children: ReactNode }) {
   const [isAutoRunning, setIsAutoRunning] = useState(false)
   const [autoStepCount, setAutoStepCount] = useState(0)
-  const [autoInterval, setAutoInterval] = useState(5)
+  const [autoInterval, setAutoInterval] = useState(0.5) // Changed from 5 to 0.5 seconds
   const [simulationResults, setSimulationResults] = useState<any>(null)
   const [demandKw, setDemandKw] = useState(100)
   const [totalDailyKwh, setTotalDailyKwh] = useState(150)

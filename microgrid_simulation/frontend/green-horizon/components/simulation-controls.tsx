@@ -63,14 +63,17 @@ export function SimulationControls({ onUpdate }: SimulationControlsProps) {
               <Input
                 id="autoInterval"
                 type="number"
-                min="1"
+                min="0.1"
                 max="60"
-                step="1"
+                step="0.1"
                 value={autoInterval}
-                onChange={(e) => setAutoInterval(Number.parseInt(e.target.value))}
+                onChange={(e) => setAutoInterval(Number.parseFloat(e.target.value))}
                 className="mt-1"
                 disabled={isAutoRunning}
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Min: 0.1s, Default: 0.5s
+              </p>
             </div>
             <div>
               <Label htmlFor="totalDailyKwh">Daily Usage (kWh)</Label>
