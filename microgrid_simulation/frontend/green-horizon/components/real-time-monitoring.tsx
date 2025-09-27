@@ -90,9 +90,9 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
 
   // Generation mix data for pie chart
   const generationMixData = [
-    { name: "Wind", value: totalWindPower, color: "hsl(var(--chart-1))" },
-    { name: "Solar", value: totalSolarPower, color: "hsl(var(--chart-3))" },
-    { name: "Diesel", value: totalDieselPower, color: "hsl(var(--chart-4))" },
+    { name: "Wind", value: totalWindPower, color: "var(--chart-1)" },
+    { name: "Solar", value: totalSolarPower, color: "var(--chart-3)" },
+    { name: "Diesel", value: totalDieselPower, color: "var(--chart-4)" },
   ].filter((item) => item.value > 0)
 
   return (
@@ -152,7 +152,7 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                       stroke="hsl(var(--accent))"
                       strokeWidth={2}
                       name="Total Generation"
-                      dot={{ fill: "hsl(var(--accent))", strokeWidth: 2, r: 3 }}
+                      dot={{ fill: "var(--accent)", strokeWidth: 2, r: 3 }}
                     />
                     <Line
                       type="monotone"
@@ -160,15 +160,15 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                       stroke="hsl(var(--chart-2))"
                       strokeWidth={2}
                       name="Battery Power"
-                      dot={{ fill: "hsl(var(--chart-2))", strokeWidth: 2, r: 3 }}
+                      dot={{ fill: "var(--chart-2)", strokeWidth: 2, r: 3 }}
                     />
                     <Line
                       type="monotone"
                       dataKey="gridPower"
-                      stroke="hsl(var(--primary))"
+                      stroke="var(--primary)"
                       strokeWidth={2}
                       name="Grid Power"
-                      dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 3 }}
+                      dot={{ fill: "var(--primary)", strokeWidth: 2, r: 3 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -480,7 +480,12 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">{Math.abs(grid.current_power).toFixed(1)} kW</p>
+                      <p className="font-medium">{Math.abs(grid.current_power).toFixed(1)} kW</p>
+                      <p className="font-medium">
+                        ${Math.round(Math.abs(grid.current_power) * (grid.status === "importing" ? grid.import_price : grid.export_price)).toFixed(1)} / h
+                      </p>
+
+                  
                         <Badge
                           variant={
                             grid.status === "importing"

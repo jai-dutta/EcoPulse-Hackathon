@@ -88,26 +88,26 @@ export function SystemOverview({ systemStatus }: SystemOverviewProps) {
                     <Line
                       type="monotone"
                       dataKey="totalGeneration"
-                      stroke="hsl(var(--accent))"
+                      stroke="var(--accent)"
                       strokeWidth={2}
                       name="Total Generation"
-                      dot={{ fill: "hsl(var(--accent))", strokeWidth: 2, r: 3 }}
+                      dot={{ fill: "var(--accent)", strokeWidth: 2, r: 3 }}
                     />
                     <Line
                       type="monotone"
                       dataKey="windPower"
-                      stroke="hsl(var(--chart-1))"
+                      stroke="var(--chart-1)"
                       strokeWidth={2}
                       name="Wind Power"
-                      dot={{ fill: "hsl(var(--chart-1))", strokeWidth: 2, r: 3 }}
+                      dot={{ fill: "var(--chart-1)", strokeWidth: 2, r: 3 }}
                     />
                     <Line
                       type="monotone"
                       dataKey="solarPower"
-                      stroke="hsl(var(--chart-3))"
+                      stroke="var(--chart-3)"
                       strokeWidth={2}
                       name="Solar Power"
-                      dot={{ fill: "hsl(var(--chart-3))", strokeWidth: 2, r: 3 }}
+                      dot={{ fill: "var(--chart-3)", strokeWidth: 2, r: 3 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -150,16 +150,16 @@ export function SystemOverview({ systemStatus }: SystemOverviewProps) {
                     <Area
                       type="monotone"
                       dataKey="renewableRatio"
-                      stroke="hsl(var(--accent))"
-                      fill="hsl(var(--accent))"
+                      stroke="var(--accent)"
+                      fill="var(--accent)"
                       fillOpacity={0.3}
                       name="Renewable %"
                     />
                     <Area
                       type="monotone"
                       dataKey="batterySOC"
-                      stroke="hsl(var(--chart-2))"
-                      fill="hsl(var(--chart-2))"
+                      stroke="var(--chart-2)"
+                      fill="var(--chart-2)"
                       fillOpacity={0.3}
                       name="Battery SOC %"
                     />
