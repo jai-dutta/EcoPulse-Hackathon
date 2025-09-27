@@ -8,9 +8,8 @@ import { SimulationProvider } from "./context/SimulationContext"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "Microgrid Management System",
+  title: "Green Horizon Core",
   description: "Professional energy management dashboard for renewable microgrids",
-  generator: "v0.app",
 }
 
 export default function RootLayout({
@@ -20,6 +19,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <link rel="icon" href="/logo.png" sizes="any"/>
+      </head>
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
         <SimulationProvider>
           <Suspense fallback={<div>Loading...</div>}>

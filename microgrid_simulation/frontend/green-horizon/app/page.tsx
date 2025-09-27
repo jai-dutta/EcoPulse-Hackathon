@@ -11,7 +11,7 @@ import { DeviceManagement } from "@/components/device-management"
 import { EnvironmentControls } from "@/components/environment-controls"
 import { SimulationControls } from "@/components/simulation-controls"
 import { RealTimeMonitoring } from "@/components/real-time-monitoring"
-
+import Image from 'next/image'
 
 interface SystemStatus {
   timestamp: string
@@ -99,7 +99,7 @@ export default function MicrogridDashboard() {
   }
 
   const updateHistoricalData = (data: SystemStatus) => {
-    const environmentTime = new Date(data.environment.timestamp || data.timestamp)
+    const environmentTime = new Date(data.environment.time || data.timestamp)
     const timestepHours = environmentTime.getHours() + environmentTime.getMinutes() / 60
 
     const newDataPoint = {
@@ -134,7 +134,7 @@ export default function MicrogridDashboard() {
 
     setHistoricalData((prev) => {
       const updated = [...prev, newDataPoint]
-      return updated.slice(-50) // Keep last 50 data points for better trend visibility
+      return updated.slice(-50) 
     })
   }
 
@@ -151,7 +151,7 @@ export default function MicrogridDashboard() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex items-center gap-2">
           <RefreshCw className="h-6 w-6 animate-spin text-primary" />
-          <span className="text-lg">Loading Microgrid System...</span>
+          <span className="text-lg">Loading Green Horizon Core...</span>
         </div>
       </div>
     )
@@ -164,11 +164,15 @@ export default function MicrogridDashboard() {
         <header className="border-b border-border bg-card">
           <div className="flex h-16 items-center justify-between px-6">
             <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent">
-                <Zap className="h-5 w-5 text-accent-foreground" />
-              </div>
+              <Image 
+                  src="/logo.png" 
+                  alt="Green Horizon Core Logo" 
+                  width={90} // Set appropriate width
+                  height={90} // Set appropriate height
+                  className="object-contain"
+                />
               <div>
-                <h1 className="text-xl font-semibold">Microgrid Management</h1>
+                <h1 className="text-xl font-semibold">Green Horizon Core</h1>
                 <p className="text-sm text-muted-foreground">{systemStatus?.environment.time || "System Offline"}</p>
               </div>
             </div>
@@ -203,8 +207,8 @@ export default function MicrogridDashboard() {
                 <strong>Connection Error:</strong> {connectionError}
                 <br />
                 <span className="text-sm mt-1 block">
-                  To fix this: Start your FastAPI backend server by running{" "}
-                  <code className="bg-muted px-1 rounded">python your_api_file.py</code> or{" "}
+                  To fix this: Start the FastAPI Backend Server{" "}
+                  <code className="bg-muted px-1 rounded">python(3) unified_api.py</code> or{" "}
                   <code className="bg-muted px-1 rounded">uvicorn main:app --reload --port 8000</code>
                 </span>
               </AlertDescription>
