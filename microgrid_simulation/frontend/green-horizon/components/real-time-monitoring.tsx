@@ -22,6 +22,7 @@ import {
 import { Battery, Fuel, Sun, Wind, Zap, Activity, TrendingUp, TrendingDown, AlertTriangle, Leaf } from "lucide-react"
 import { useMonitoring } from "@/app/page"
 import { useSimulation } from "@/app/context/SimulationContext"
+import { SimulationControls } from "./simulation-controls"
 
 export function DeviceManagementWrapper() {
   const { refresh } = useSimulation()
@@ -39,7 +40,7 @@ export function DeviceManagementWrapper() {
     return () => clearInterval(interval)
   }, [refresh])
 
-  return <RealTimeMonitoring onUpdate={refresh} />
+  return <SimulationControls onUpdate={refresh} />
 }
 interface RealTimeMonitoringProps {
   systemStatus: any
@@ -168,7 +169,7 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                     <Line
                       type="monotone"
                       dataKey="totalGeneration"
-                      stroke="hsl(var(--accent))"
+                      stroke="var(--accent)"
                       strokeWidth={2}
                       name="Total Generation"
                       dot={{ fill: "var(--accent)", strokeWidth: 2, r: 3 }}
@@ -176,7 +177,7 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                     <Line
                       type="monotone"
                       dataKey="batteryPower"
-                      stroke="hsl(var(--chart-2))"
+                      stroke="var(--chart-2)"
                       strokeWidth={2}
                       name="Battery Power"
                       dot={{ fill: "var(--chart-2)", strokeWidth: 2, r: 3 }}
@@ -321,8 +322,8 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                       type="monotone"
                       dataKey="windPower"
                       stackId="1"
-                      stroke="hsl(var(--chart-1))"
-                      fill="hsl(var(--chart-1))"
+                      stroke="var(--chart-1)"
+                      fill="var(--chart-1)"
                       fillOpacity={0.6}
                       name="Wind"
                     />
@@ -330,8 +331,8 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                       type="monotone"
                       dataKey="solarPower"
                       stackId="1"
-                      stroke="hsl(var(--chart-3))"
-                      fill="hsl(var(--chart-3))"
+                      stroke="var(--chart-3)"
+                      fill="var(--chart-3)"
                       fillOpacity={0.6}
                       name="Solar"
                     />
@@ -339,8 +340,8 @@ export function RealTimeMonitoring({ systemStatus }: RealTimeMonitoringProps) {
                       type="monotone"
                       dataKey="dieselPower"
                       stackId="1"
-                      stroke="hsl(var(--chart-4))"
-                      fill="hsl(var(--chart-4))"
+                      stroke="var(--chart-4)"
+                      fill="var(--chart-4)"
                       fillOpacity={0.6}
                       name="Diesel"
                     />
